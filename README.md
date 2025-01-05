@@ -60,24 +60,12 @@ Clients --- Services
 ```
 ### Backend Folder Structure
 ```
-backend/
-  ├─ src/
-  │   ├─ app.ts
-  │   ├─ prisma/
-  │   │   ├─ schema.prisma
-  │   │   └─ client.ts
-  │   ├─ modules/
-  │       ├─ auth/
-  │       ├─ users/
-  │       ├─ services/
-  │       ├─ clients/
-  │       ├─ appointments/
-  ├─ package.json
-  ├─ tsconfig.json
-  └─ .env
+
 ```
 ### Frontend Folder Structure
+```
 
+```
 ## Contact
 For questions or suggestions, reach me at tsvetanilievdev@gmail.com.
 
