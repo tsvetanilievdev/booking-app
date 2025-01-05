@@ -39,7 +39,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 
 ## Project Milestones
 - [x] Define project scope and architecture
-- [x] Set up the Back-End environment
+- [ ] Set up the Back-End environment
 - [ ] Build the Front-End components
 - [ ] Integrate Back-End and Front-End
 - [ ] Deploy and test the application
