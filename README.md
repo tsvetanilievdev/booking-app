@@ -48,15 +48,16 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 This project follows a modular architecture for scalability and maintainability.
 
 ### High-Level Architecture
-[Browser] -> [Front-End (React/Next.js)] -> [Back-End (NestJS)] -> [Database (PostgreSQL)]
+```[Browser] -> [Front-End (React/Next.js)] -> [Back-End (NestJS)] -> [Database (PostgreSQL)]```
 
 ### ER Diagram
+```
 Users (Admin/Worker)
   |
   |--- Appointments
   |
 Clients --- Services
-
+```
 ### Backend Folder Structure
 ```
 backend/
@@ -74,7 +75,7 @@ backend/
   ├─ package.json
   ├─ tsconfig.json
   └─ .env
-
+```
 ### Frontend Folder Structure
 
 ## License
