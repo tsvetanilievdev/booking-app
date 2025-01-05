@@ -9,8 +9,8 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 4. [Getting Started](#getting-started)
 5. [Project Milestones](#project-milestones)
 6. [Architecture Overview](#architecture-overview)
-7. [License](#license)
-
+7. [Contact](#contact)
+8. [License](#license)
 ---
 
 ## Features
@@ -77,6 +77,9 @@ backend/
   └─ .env
 ```
 ### Frontend Folder Structure
+
+## Contact
+For questions or suggestions, reach me at tsvetanilievdev@gmail.com.
 
 ## License
 MIT License
