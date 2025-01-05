@@ -36,3 +36,65 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 🚧 In progress - Initial setup and planning phase.
 
 ---
+
+## Project Milestones
+- [x] Define project scope and architecture
+- [x] Set up the Back-End environment
+- [ ] Build the Front-End components
+- [ ] Integrate Back-End and Front-End
+- [ ] Deploy and test the application
+
+## Architecture Overview
+This project follows a modular architecture for scalability and maintainability.
+
+### High-Level Architecture
+[Browser] -> [Front-End (React/Next.js)] -> [Back-End (NestJS)] -> [Database (PostgreSQL)]
+
+### ER Diagram
+Users (Admin/Worker)
+  |
+  |--- Appointments
+  |
+Clients --- Services
+
+### Backend Folder Structure
+backend/
+  ├─ src/
+  │   ├─ app.ts
+  │   ├─ prisma/
+  │   │   ├─ schema.prisma
+  │   │   └─ client.ts
+  │   ├─ modules/
+  │       ├─ auth/
+  │       ├─ users/
+  │       ├─ services/
+  │       ├─ clients/
+  │       ├─ appointments/
+  ├─ package.json
+  ├─ tsconfig.json
+  └─ .env
+
+### Frontend Folder Structure
+
+## License
+MIT License
+
+Copyright (c) 2025 [Tsvetan Iliev]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
