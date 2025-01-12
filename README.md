@@ -24,7 +24,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 ---
 
 ## Tech Stack
-- **Back-End**: NestJS (Node.js), Prisma ORM, PostgreSQL
+- **Back-End**: Express (Node.js), Prisma ORM, PostgreSQL
 - **Front-End**: React/Next.js
 - **Authentication**: JWT
 - **Hosting**: Docker, Vercel/Heroku
@@ -48,7 +48,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 This project follows a modular architecture for scalability and maintainability.
 
 ### High-Level Architecture
-```[Browser] -> [Front-End (React/Next.js)] -> [Back-End (NestJS)] -> [Database (PostgreSQL)]```
+```[Browser] -> [Front-End (React/Next.js)] -> [Back-End (Express)] -> [Database (PostgreSQL)]```
 
 ### ER Diagram
 ```
