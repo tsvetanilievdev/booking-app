@@ -60,7 +60,29 @@ Clients --- Services
 ```
 ### Backend Folder Structure
 ```
-backend/ ├── .env ├── .gitignore ├── package.json ├── prisma/ │ └── schema.prisma ├── src/ │ ├── app.ts │ ├── controllers/ │ ├── middlewares/ │ ├── models/ │ ├── routes/ │ ├── server.ts │ ├── services/ │ └── utils/ └── tsconfig.json ```
+### Backend Folder Structure
+backend/
+│
+├── .env
+│
+├── .gitignore
+│
+├── package.json
+│
+├── prisma/
+│   └── schema.prisma
+│
+├── src/
+│   ├── app.ts
+│   ├── controllers/
+│   ├── middlewares/
+│   ├── models/
+│   ├── routes/
+│   ├── server.ts
+│   ├── services/
+│   └── utils/
+│
+└── tsconfig.json
 ```
 ### Frontend Folder Structure
 ```
