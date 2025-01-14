@@ -1,8 +1,8 @@
 import express from 'express';
+import router from './routes/router';
 const app = express();
+app.use(express.json());
 
-app.get('/', (req: express.Request, res: express.Response) => {
-    res.json({ message: 'Hello World' });
-});
+app.use('/', router);
 
 export default app;
