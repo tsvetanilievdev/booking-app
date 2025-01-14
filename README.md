@@ -73,7 +73,8 @@ backend/
 │   └── schema.prisma
 │
 ├── src/
-│   ├── app.ts
+│   ├── index.ts
+│   ├── db.ts
 │   ├── controllers/
 │   ├── middlewares/
 │   ├── models/
