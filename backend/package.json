@@ -1,20 +1,20 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "start": "node dist/server.js",
-    "dev": "nodemon --watch src --exec ts-node src/server.ts",
+    "start": "node dist/index.js",
+    "dev": "nodemon --watch src --exec ts-node src/index.ts",
     "build": "tsc",
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["backend", "booking-system", "nodejs", "typescript"],
+  "author": "Tsvetan Iliev",
   "license": "ISC",
   "type": "commonjs",
-  "description": "",
+  "description": "A backend for the booking system project",
   "dependencies": {
     "@prisma/client": "^6.2.1",
     "bcrypt": "^5.1.1",
