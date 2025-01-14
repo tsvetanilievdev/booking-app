@@ -38,9 +38,22 @@ model Appointment {
   id        String   @id @default(cuid())
   userId    String
   serviceId String
+  clientId  Int?
   date      DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   User      User     @relation(fields: [userId], references: [id])
   Service   Service  @relation(fields: [serviceId], references: [id])
+  Client    Client?  @relation(fields: [clientId], references: [id])
+}
+
+model Client {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  notes     String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  appointments Appointment[]
 }
