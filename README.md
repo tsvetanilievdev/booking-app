@@ -24,7 +24,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 ---
 
 ## Tech Stack
-- **Back-End**: NestJS (Node.js), Prisma ORM, PostgreSQL
+- **Back-End**: Express (Node.js), Prisma ORM, PostgreSQL
 - **Front-End**: React/Next.js
 - **Authentication**: JWT
 - **Hosting**: Docker, Vercel/Heroku
@@ -39,7 +39,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 
 ## Project Milestones
 - [x] Define project scope and architecture
-- [ ] Set up the Back-End environment
+- [x] Set up the Back-End environment
 - [ ] Build the Front-End components
 - [ ] Integrate Back-End and Front-End
 - [ ] Deploy and test the application
@@ -48,7 +48,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 This project follows a modular architecture for scalability and maintainability.
 
 ### High-Level Architecture
-```[Browser] -> [Front-End (React/Next.js)] -> [Back-End (NestJS)] -> [Database (PostgreSQL)]```
+```[Browser] -> [Front-End (React/Next.js)] -> [Back-End (Express)] -> [Database (PostgreSQL)]```
 
 ### ER Diagram
 ```
@@ -60,7 +60,30 @@ Clients --- Services
 ```
 ### Backend Folder Structure
 ```
-
+### Backend Folder Structure
+backend/
+│
+├── .env
+│
+├── .gitignore
+│
+├── package.json
+│
+├── prisma/
+│   └── schema.prisma
+│
+├── src/
+│   ├── index.ts
+│   ├── db.ts
+│   ├── controllers/
+│   ├── middlewares/
+│   ├── models/
+│   ├── routes/
+│   ├── server.ts
+│   ├── services/
+│   └── utils/
+│
+└── tsconfig.json
 ```
 ### Frontend Folder Structure
 ```
