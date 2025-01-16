@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createUser } from "../services/userService";
+import { createUser } from "../services/userService.js";
 const userRouter = Router();
 
 userRouter.post('/', async (req, res) => {
@@ -18,6 +18,5 @@ userRouter.post('/', async (req, res) => {
         })
     }
 });
-
 
 export default userRouter;

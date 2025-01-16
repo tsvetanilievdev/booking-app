@@ -1,8 +1,7 @@
-import { Role } from "@prisma/client";
-import prisma from "../db";
+import prisma from "../db.js";
 import bcrypt from 'bcrypt';
 
-export const createUser = async (name: string, email: string, password: string, role: Role = 'USER') => {
+export const createUser = async (name, email, password, role = 'USER') => {
     try {
         const user = await prisma.user.create({
             data: {
@@ -19,7 +18,7 @@ export const createUser = async (name: string, email: string, password: string, 
     }
 };
 
-export const register = async (name: string, email: string, password: string, role: Role = 'USER') => {
+export const register = async (name, email, password, role = 'USER') => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await prisma.user.create({
@@ -37,7 +36,7 @@ export const register = async (name: string, email: string, password: string, ro
     }
 }
 
-export const login = async (email: string, password: string) => {
+export const login = async (email, password) => {
     const user = await prisma.user.findUnique({
         where: {
             email
