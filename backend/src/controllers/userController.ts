@@ -10,7 +10,7 @@ userRouter.post('/', async (req, res) => {
         return;
     }
     try {
-        const user = await createUser(req.body.name, req.body.email, req.body.password);
+        const user = await createUser(req.body.name, req.body.email, req.body.password, req.body.role);
         res.json(user);
     } catch (error) {
         res.status(400).json({

@@ -18,7 +18,7 @@ model User {
   email     String   @unique
   name      String?
   password  String
-  role      String   @default("USER")
+  role      Role   @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
@@ -56,4 +56,10 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
+}
+
+enum Role {
+  USER
+  ADMIN
+  CLIENT
 }
