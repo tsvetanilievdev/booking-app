@@ -73,13 +73,13 @@ backend/
 │   └── schema.prisma
 │
 ├── src/
-│   ├── index.ts
-│   ├── db.ts
+│   ├── index.js
+│   ├── db.js
 │   ├── controllers/
 │   ├── middlewares/
 │   ├── models/
 │   ├── routes/
-│   ├── server.ts
+│   ├── server.js
 │   ├── services/
 │   └── utils/
 │
