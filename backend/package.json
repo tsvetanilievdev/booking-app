@@ -10,7 +10,12 @@
     "prisma:generate": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["backend", "booking-system", "nodejs", "typescript"],
+  "keywords": [
+    "backend",
+    "booking-system",
+    "nodejs",
+    "typescript"
+  ],
   "author": "Tsvetan Iliev",
   "license": "ISC",
   "type": "commonjs",
@@ -25,6 +30,7 @@
     "prisma": "^6.2.1"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "nodemon": "^3.1.9",
