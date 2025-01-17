@@ -61,5 +61,4 @@ model Client {
 enum Role {
   USER
   ADMIN
-  CLIENT
 }

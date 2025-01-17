@@ -14,40 +14,34 @@ export const createUser = async (name, email, password, role = 'USER') => {
         return user;
     } catch (error) {
         console.log("ERROR in createUser: ", error);
-        throw new Error('Something went wrong');
+        throw new Error('Failed to create user');
     }
 };
 
-export const register = async (name, email, password, role = 'USER') => {
+export const getUserById = async (id) => {
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const user = await prisma.user.create({
-            data: {
-                name,
-                email,
-                password: hashedPassword,
-                role
+        const user = await prisma.user.findUnique({
+            where: {
+                id
             }
         });
         return user;
     } catch (error) {
-        console.log("ERROR in registerUser: ", error);
-        throw new Error('Something went wrong');
+        console.log("ERROR in getUserById: ", error);
+        throw new Error({message: 'User not found'});
     }
-}
+};
 
-export const login = async (email, password) => {
-    const user = await prisma.user.findUnique({
-        where: {
-            email
-        }
-    });
-    if (!user) {
-        throw new Error('Invalid email or password');
+export const getUserByEmail = async (email) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: {
+                email
+            }
+        });
+        return user;
+    } catch (error) {
+        console.log("ERROR in getUserByEmail: ", error);
+        throw new Error({message: 'User not found'});
     }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-        throw new Error('Invalid email or password');
-    }
-    return user;
 };
