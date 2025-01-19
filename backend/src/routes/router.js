@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRouter from './authRouter.js';
 import userRouter from './userRouter.js';
 import serviceRouter from './serviceRouter.js';
+import clientRouter from './clientRouter.js';
 
 const router = Router();
 
@@ -9,6 +10,7 @@ const router = Router();
 router.use('/api/auth', authRouter);
 router.use('/api/users', userRouter);
 router.use('/api/services', serviceRouter);
+router.use('/api/clients', clientRouter);
 
 // 404 handler
 router.use('/*', (req, res) => {
