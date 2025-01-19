@@ -1,18 +1,29 @@
-import { Router } from "express";
 import { createUser, getUserByEmail } from "../services/userService.js";
 import bcrypt from 'bcrypt';
 import { createToken } from "../utils/authUtils.js";
+import { setCorsHeaders } from '../middleware/cors.js';
 
-export const register = async (req,res) => {
-    const { name, email, password } = req.body;
+export const register = async (req, res) => {
+    const { name, email, password } = req.sanitizedData;
+
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await createUser(name, email, hashedPassword);
         const token = createToken(user);
-        res.status(201).json({token});
+        
+        setCorsHeaders(res);
+        
+        return res.status(201).json({ 
+            token,
+            message: 'Registration successful'
+        });
     } catch (error) {
-        console.log("ERROR in register: ", error);
-        res.status(500).json({message: 'Failed to create user'});
+        if (error.code === 'ER_DUP_ENTRY' || error.message.includes('duplicate')) {
+            return res.status(409).json({ message: 'Email already exists' });
+        }
+
+        logger.error('Registration error:', error);
+        return res.status(500).json({ message: 'Internal server error' });
     }
 };
 

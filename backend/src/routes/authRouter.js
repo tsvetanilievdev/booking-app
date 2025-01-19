@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { protect } from "../middlewares/protect";
-import { login, register } from "../controllers/userController";
+import { login, register } from "../controllers/userController.js";
+import { registerLimiter } from '../middleware/rateLimiter.js';
+import { validateRegistration } from '../middleware/userValidation.js';
 
 const authRouter = Router();
 
-authRouter.use('/', protect);
-authRouter.post('/register', register)
+// Authentication routes (public)
+authRouter.post('/register', registerLimiter, validateRegistration, register);
 authRouter.post('/login', login);
 
 export default authRouter;

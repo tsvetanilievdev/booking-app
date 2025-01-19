@@ -1,13 +1,18 @@
 import { Router } from 'express';
-import userRouter from '../controllers/userController.js';
+import authRouter from './authRouter.js';
+import userRouter from './userRouter.js';
+import serviceRouter from './serviceRouter.js';
 
 const router = Router();
 
-router.use('/api', userRouter);
+// API routes
+router.use('/api/auth', authRouter);
+router.use('/api/users', userRouter);
+router.use('/api/services', serviceRouter);
+
+// 404 handler
 router.use('/*', (req, res) => {
-    res.status(404).json({
-        message: 'Not Found'
-    });
+    res.status(404).json({ message: 'Not Found' });
 });
 
 export default router;
