@@ -128,3 +128,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Text editor files
+*.txt
+*.log
+*.md
+*.rtf
+*.doc
+*.docx
+*.pdf
