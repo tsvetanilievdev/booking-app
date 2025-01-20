@@ -22,6 +22,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
+  isDeleted Boolean @default(false)
 }
 
 model Service {
@@ -45,6 +46,8 @@ model Appointment {
   User      User     @relation(fields: [userId], references: [id])
   Service   Service  @relation(fields: [serviceId], references: [id])
   Client    Client?  @relation(fields: [clientId], references: [id])
+  isDeleted Boolean @default(false)
+  isCancelled Boolean @default(false)
 }
 
 model Client {
@@ -56,6 +59,7 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
+  isDeleted Boolean @default(false)
 }
 
 enum Role {

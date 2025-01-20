@@ -1,14 +1,26 @@
-export const MAX_NAME_LENGTH = 50;
-export const MAX_PASSWORD_LENGTH = 128;
+import { z } from "zod";
 
-export const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-};
+// Common rules that can be reused
+const emailRule = z.string()
+  .email("Invalid email address")
+  .toLowerCase();
 
-export const sanitizeInput = (input, sanitize) => {
-    return sanitize(input?.trim(), {
-        allowedTags: [],
-        allowedAttributes: {}
-    });
-}; 
+const passwordRule = z.string()
+  .min(6, "Password must be at least 6 characters")
+  .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "Password must contain at least one letter and one number");
+
+// Define schemas
+export const registerSchema = z.object({
+  name: z.string()
+    .min(3, "Username must be at least 3 characters")
+    .max(30, "Username cannot be longer than 30 characters")
+    .regex(/^[a-zA-Z0-9_ ]+$/, "Only letters, numbers, spaces and underscore are allowed")
+    .toLowerCase(),
+  email: emailRule,
+  password: passwordRule
+});
+
+export const loginSchema = z.object({
+  email: emailRule,
+  password: passwordRule
+});
