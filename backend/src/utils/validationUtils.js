@@ -17,7 +17,8 @@ export const registerSchema = z.object({
     .regex(/^[a-zA-Z0-9_ ]+$/, "Only letters, numbers, spaces and underscore are allowed")
     .toLowerCase(),
   email: emailRule,
-  password: passwordRule
+  password: passwordRule,
+  role: z.enum(['ADMIN', 'USER']).optional()
 });
 
 export const loginSchema = z.object({
