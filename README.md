@@ -33,7 +33,7 @@ A scalable and flexible booking system for beauty centers, hairdressers, and oth
 ---
 
 ## Project Status
-🚧 In progress - Initial setup and planning phase.
+🚧 In progress - Build Back-End.
 
 ---
 
