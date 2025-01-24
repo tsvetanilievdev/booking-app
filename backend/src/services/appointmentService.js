@@ -22,7 +22,7 @@ export const getAllAppointments = async () => {
             date: 'asc'
         }
     });
-};
+}; 
 
 export const getAppointmentById = async (id) => {
     return prisma.appointment.findUnique({
