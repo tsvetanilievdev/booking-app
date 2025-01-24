@@ -67,26 +67,38 @@ export const getAppointmentsByUserId = async (userId) => {
     });
 };
 
-export const checkForConflicts = async (userId, date, duration, excludeId = null) => {
-    const appointmentDate = new Date(date);
-    const endDate = new Date(appointmentDate.getTime() + duration * 60000); // duration in minutes to milliseconds
+export const checkForConflicts = async (userId, date, appointmentId = null) => {
+    try {
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
 
-    const conflicts = await prisma.appointment.findMany({
-        where: {
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const where = {
             userId,
-            id: { not: excludeId }, // Exclude current appointment when updating
             date: {
-                lt: endDate
-            },
-            AND: {
-                date: {
-                    gte: appointmentDate
-                }
+                gte: startOfDay,
+                lte: endOfDay
             }
-        }
-    });
+        };
 
-    return conflicts.length > 0;
+        // Ако имаме appointmentId (при update), изключваме текущия appointment
+        if (appointmentId) {
+            where.id = {
+                not: String(appointmentId)
+            };
+        }
+
+        const existingAppointments = await prisma.appointment.findMany({
+            where
+        });
+
+        return existingAppointments;
+    } catch (error) {
+        console.error('Error checking for conflicts:', error);
+        throw new Error('Failed to check for appointment conflicts');
+    }
 };
 
 export const getAppointmentsByService = async (serviceId) => {
