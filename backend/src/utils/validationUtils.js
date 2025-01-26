@@ -25,3 +25,41 @@ export const loginSchema = z.object({
   email: emailRule,
   password: passwordRule
 });
+
+// Базова схема без трансформация
+const baseAppointmentSchema = z.object({
+    serviceId: z.string({
+        required_error: "Service ID is required",
+        invalid_type_error: "Service ID must be a string"
+    }),
+    date: z.string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+        .refine(date => new Date(date) > new Date(), {
+            message: "Appointment date must be in the future"
+        }),
+    time: z.string()
+        .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Time must be in HH:mm format"),
+    notes: z.array(z.string())
+        .optional()
+        .default([])
+});
+
+// Схема за създаване на appointment
+export const createAppointmentSchema = baseAppointmentSchema.transform(data => ({
+    serviceId: data.serviceId,
+    date: new Date(`${data.date}T${data.time}:00.000Z`),
+    notes: data.notes
+}));
+
+// Схема за обновяване на appointment (всички полета са опционални)
+export const updateAppointmentSchema = baseAppointmentSchema
+    .partial()
+    .transform(data => {
+        const transformed = { ...data };
+        if (data.date && data.time) {
+            transformed.date = new Date(`${data.date}T${data.time}:00.000Z`);
+        }
+        delete transformed.time;
+        return transformed;
+    });
+

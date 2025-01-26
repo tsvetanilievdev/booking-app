@@ -1,30 +1,19 @@
-import { Router } from 'express';
-import * as appointmentController from '../controllers/appointmentController.js';
+import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
-import { validateAppointment } from '../middleware/validationMiddleware.js';
+import * as appointmentController from '../controllers/appointmentController.js';
 
-const router = Router();
+const router = express.Router();
 
-// All appointment routes should be protected
+// Всички routes изискват автентикация
 router.use(protect);
 
-// Get user's own appointments
-router.get('/my-appointments', appointmentController.getMyAppointments);
+// GET /api/appointments - Вземи всички appointments на потребителя
+router.get('/', appointmentController.getAppointments);
 
-// Get appointments by service
-router.get('/service/:serviceId', appointmentController.getAppointmentsByService);
-
-// Get appointments by client
-router.get('/client/:clientId', appointmentController.getAppointmentsByClient);
-
-// Get appointments by date range
-router.get('/date-range', appointmentController.getAppointmentsByDateRange);
-
-// Regular CRUD routes
-router.get('/', appointmentController.getAllAppointments);
+// GET /api/appointments/:id - Вземи конкретен appointment
 router.get('/:id', appointmentController.getAppointmentById);
-router.post('/', validateAppointment, appointmentController.createAppointment);
-router.put('/:id', validateAppointment, appointmentController.updateAppointment);
-router.delete('/:id', appointmentController.deleteAppointment);
 
-export default router; 
+// POST /api/appointments - Създай нов appointment
+router.post('/', appointmentController.createAppointment);
+
+export default router;

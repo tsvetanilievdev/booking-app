@@ -1,5 +1,5 @@
 import prisma from '../db.js';
-import * as appointmentService from '../services/appointmentService.js';
+
 
 export const validateService = (req, res, next) => {
     const { name, price, duration } = req.body;
@@ -62,59 +62,3 @@ export const validateClient = (req, res, next) => {
 
     next();
 };
-
-export const validateAppointment = async (req, res, next) => {
-    const { serviceId, clientId, date } = req.body;
-    const errors = [];
-
-    if (!serviceId) {
-        errors.push('Service ID is required');
-    }
-
-    if (!date) {
-        errors.push('Date is required');
-    } else {
-        const appointmentDate = new Date(date);
-        if (isNaN(appointmentDate.getTime())) {
-            errors.push('Invalid date format');
-        } else if (appointmentDate < new Date()) {
-            errors.push('Appointment date cannot be in the past');
-        }
-    }
-
-    if (clientId && typeof clientId !== 'number') {
-        errors.push('Client ID must be a number');
-    }
-
-    if (errors.length > 0) {
-        return res.status(400).json({ errors });
-    }
-
-    // Check for scheduling conflicts
-    try {
-        const service = await prisma.service.findUnique({
-            where: { id: serviceId }
-        });
-
-        if (!service) {
-            return res.status(404).json({ message: 'Service not found' });
-        }
-
-        const hasConflict = await appointmentService.checkForConflicts(
-            req.user.id,
-            date,
-            service.duration,
-            req.params.id // Pass current appointment ID for updates
-        );
-
-        if (hasConflict) {
-            return res.status(409).json({ 
-                message: 'This time slot conflicts with another appointment' 
-            });
-        }
-
-        next();
-    } catch (error) {
-        next(error);
-    }
-}; 
