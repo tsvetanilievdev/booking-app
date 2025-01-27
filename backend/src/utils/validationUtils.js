@@ -45,21 +45,20 @@ const baseAppointmentSchema = z.object({
 });
 
 // Схема за създаване на appointment
-export const createAppointmentSchema = baseAppointmentSchema.transform(data => ({
-    serviceId: data.serviceId,
-    date: new Date(`${data.date}T${data.time}:00.000Z`),
-    notes: data.notes
-}));
+export const createAppointmentSchema = z.object({
+    serviceId: z.string(),
+    userId: z.string(),      // ID на служителя
+    clientId: z.number().optional(),  // ID на клиента (опционално)
+    startTime: z.string().or(z.date()),
+    notes: z.array(z.string()).optional().default([])
+});
 
 // Схема за обновяване на appointment (всички полета са опционални)
-export const updateAppointmentSchema = baseAppointmentSchema
-    .partial()
-    .transform(data => {
-        const transformed = { ...data };
-        if (data.date && data.time) {
-            transformed.date = new Date(`${data.date}T${data.time}:00.000Z`);
-        }
-        delete transformed.time;
-        return transformed;
-    });
+export const updateAppointmentSchema = z.object({
+    serviceId: z.string().optional(),
+    userId: z.string().optional(),
+    clientId: z.number().optional(),
+    startTime: z.string().or(z.date()).optional(),
+    notes: z.array(z.string()).optional()
+});
 

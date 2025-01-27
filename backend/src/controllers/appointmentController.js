@@ -4,29 +4,25 @@ import { z } from 'zod';
 
 export const createAppointment = async (req, res) => {
     try {
-        // Валидираме входящите данни
-        const validatedData = createAppointmentSchema.parse(req.body);
+        const validatedData = createAppointmentSchema.parse({
+            ...req.body,
+            userId: req.body.userId || req.user.id  // Използваме ID-то на служителя от body или текущия потребител
+        });
         
-        // Добавяме userId от автентикирания потребител
-        const appointmentData = {
+        const appointment = await appointmentService.createAppointment({
             ...validatedData,
-            userId: req.user.id
-        };
-
-        const appointment = await appointmentService.createAppointment(appointmentData);
+            startTime: new Date(validatedData.startTime),
+            clientId: validatedData.clientId || null  // Експлицитно задаваме null ако няма clientId
+        });
         
         res.status(201).json({
             message: 'Appointment created successfully',
             appointment
         });
     } catch (error) {
-        if (error instanceof z.ZodError) {
+        if (error.message === 'This time slot is not available') {
             return res.status(400).json({
-                message: 'Validation failed',
-                errors: error.errors.map(err => ({
-                    field: err.path.join('.'),
-                    message: err.message
-                }))
+                message: error.message
             });
         }
 
