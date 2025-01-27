@@ -44,6 +44,16 @@ export const getUserById = async (id) => {
     }
 };
 
+export const getAllUsers = async () => {
+    return prisma.user.findMany({
+        where: {
+            role: {
+                not: 'ADMIN'
+            }
+        }
+    });
+};
+
 export const getUserByEmail = async (email) => {
     try {
         const user = await prisma.user.findUnique({
@@ -55,6 +65,38 @@ export const getUserByEmail = async (email) => {
         throw {
             type: 'SERVER_ERROR',
             message: 'Failed to fetch user'
+        };
+    }
+};
+
+export const updateUser = async (id, updateData) => {
+    try {
+        const user = await prisma.user.update({
+            where: { id },
+            data: updateData
+        });
+        return user;
+    } catch (error) {
+        logger.error('Update user error:', error);
+        throw {
+            type: 'SERVER_ERROR',
+            message: 'Failed to update user'
+        };
+    }
+};
+
+export const deleteUser = async (id) => {
+    try {
+        await prisma.user.update({
+            where: { id },
+            data: { isDeleted: true }
+        });
+        return true;
+    } catch (error) {
+        logger.error('Delete user error:', error);
+        throw {
+            type: 'SERVER_ERROR',
+            message: 'Failed to delete user'
         };
     }
 };
