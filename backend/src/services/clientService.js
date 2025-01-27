@@ -33,8 +33,17 @@ export const updateClient = async (id, clientData) => {
     });
 };
 
+
 export const deleteClient = async (id) => {
     return prisma.client.delete({
         where: { id }
     });
 };
+
+export const addNoteToClient = async (clientId, note) => {
+    return prisma.client.update({
+        where: { id: clientId },
+        data: { notes: { push: note } }
+    });
+};
+
