@@ -1,4 +1,4 @@
-import { createUser, getUserByEmail } from "../services/userService.js";
+import { createUser, getUserByEmail, getUserById, updateUser, deleteUser } from "../services/userService.js";
 import bcrypt from 'bcrypt';
 import { createToken } from "../utils/authUtils.js";
 import { setCorsHeaders } from '../middleware/cors.js';
@@ -80,5 +80,44 @@ export const login = async (req, res) => {
         res.status(500).json({
             message: 'Internal server error'
         });
+    }
+};
+
+export const getProfile = async (req, res) => {
+    try {
+        const user = await getUserById(req.user.id);
+        if (!user || user.isDeleted) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        // Не връщаме паролата
+        const { password, ...userWithoutPassword } = user;
+        res.status(200).json(userWithoutPassword);
+    } catch (error) {
+        logger.error('Get profile error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+export const updateProfile = async (req, res) => {
+    try {
+        const { name, email } = req.body;
+        const updatedUser = await updateUser(req.user.id, { name, email });
+        
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.status(200).json(userWithoutPassword);
+    } catch (error) {
+        logger.error('Update profile error:', error);
+        res.status(500).json({ message: 'Failed to update profile' });
+    }
+};
+
+export const deleteProfile = async (req, res) => {
+    try {
+        await deleteUser(req.user.id);
+        res.status(200).json({ message: 'Profile deleted successfully' });
+    } catch (error) {
+        logger.error('Delete profile error:', error);
+        res.status(500).json({ message: 'Failed to delete profile' });
     }
 };
