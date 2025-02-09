@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 // Common rules that can be reused
-const emailRule = z.string()
+const emailRule = z.string().trim()
   .email("Invalid email address")
   .toLowerCase();
 

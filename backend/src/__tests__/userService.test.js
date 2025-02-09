@@ -46,7 +46,7 @@ describe("User Service Tests", () => {
         });
 
         it('should throw an error when the email format is invalid', async () => {
-            createUser.mockRejectedValue(new Error("Invalid email format"));
+            createUser.mockRejectedValue(new Error("Invalid email address"));
             const invalidUser = {
                 name: 'Invalid User',
                 email: 'invalid-email', // Invalid email format
@@ -59,7 +59,7 @@ describe("User Service Tests", () => {
                 invalidUser.email,
                 invalidUser.password,
                 invalidUser.role
-            )).rejects.toThrow('Invalid email format');
+            )).rejects.toThrow('Invalid email address');
         });
     });
 
