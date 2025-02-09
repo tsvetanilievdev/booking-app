@@ -1,5 +1,4 @@
 import prisma from "../db.js";
-import bcrypt from 'bcrypt';
 import logger from '../utils/logger.js';
 
 export const createUser = async (name, email, password, role = 'USER') => {
