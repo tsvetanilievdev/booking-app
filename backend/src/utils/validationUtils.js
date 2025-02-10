@@ -22,8 +22,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: emailRule,
-  password: passwordRule
+  email: emailRule
 });
 
 // Базова схема без трансформация

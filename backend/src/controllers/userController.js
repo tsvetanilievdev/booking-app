@@ -6,8 +6,6 @@ import { ZodError } from "zod";
 
 
 export const register = async (req,res) => {
-    
-
     try {
     const validatedData = registerSchema.parse(req.body);
         const hashedPassword = await bcrypt.hash(validatedData.password, 10);
@@ -17,7 +15,7 @@ export const register = async (req,res) => {
 
     } catch (error) {
         if (error instanceof ZodError) {
-            return res.status(400).json({ errors: error.errors });
+            return res.status(401).json({ errors: error.errors });
         }
         console.log("ERROR in register: ", error);
         res.status(500).json({message: 'Failed to create user'});
@@ -41,7 +39,7 @@ export const login = async (req,res) => {
         res.status(200).json({token});
     } catch (error) {
         if (error instanceof ZodError) {
-            return res.status(400).json({ errors: error.errors });
+            return res.status(401).json({ errors: error.errors });
         }
         console.log("ERROR in login: ", error);
         res.status(500).json({message: 'Failed to login'});
