@@ -22,8 +22,24 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: emailRule
+  email: emailRule,
+  password: z.string()
 });
+
+export const updateProfileSchema = z.object({
+  name: z.string()
+    .min(3, "Name must be at least 3 characters")
+    .max(30, "Name cannot be longer than 30 characters")
+    .regex(/^[a-zA-Z0-9_ ]+$/, "Only letters, numbers, spaces and underscore are allowed")
+    .toLowerCase(),
+  email: emailRule,
+  role: z.enum(['ADMIN', 'USER'])
+}).partial();
+
+export const changePasswordSchema = z.object({
+  oldPassword: z.string(),
+  newPassword: passwordRule
+})
 
 // Базова схема без трансформация
 const baseAppointmentSchema = z.object({

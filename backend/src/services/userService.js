@@ -84,6 +84,22 @@ export const updateUser = async (id, updateData) => {
     }
 };
 
+export const updateUserPassword = async (id, newPassword) => {
+    try {
+        const user = await prisma.user.update({
+            where: { id },
+            data: { password: newPassword }
+        });
+        return user;
+    } catch (error) {
+        logger.error('Update user password error:', error);
+        throw {
+            type: 'SERVER_ERROR',
+            message: 'Failed to update user password'
+        };
+    }W
+}
+
 export const deleteUser = async (id) => {
     try {
         await prisma.user.update({

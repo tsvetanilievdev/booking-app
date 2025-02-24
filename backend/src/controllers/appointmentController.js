@@ -1,6 +1,5 @@
 import { createAppointmentSchema, updateAppointmentSchema } from '../utils/validationUtils.js';
 import * as appointmentService from '../services/appointmentService.js';
-import { z } from 'zod';
 
 export const createAppointment = async (req, res) => {
     try {
@@ -39,11 +38,7 @@ export const getAppointments = async (req, res) => {
         const appointments = await appointmentService.getAllAppointments(req.user.id);
         res.json(appointments);
     } catch (error) {
-        console.error('Get appointments error:', error);
-        res.status(500).json({
-            message: 'Failed to fetch appointments',
-            error: error.message
-        });
+        res.status(500).json({ message: 'Error fetching appointments' });
     }
 };
 
