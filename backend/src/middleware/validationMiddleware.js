@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { createValidationError, ErrorCodes } from '../utils/errorUtils.js';
 
 /**
  * Generic validation middleware factory that validates request data against a Zod schema
@@ -17,18 +18,11 @@ export const validate = (schema, source = 'body') => {
       
       next();
     } catch (error) {
+      // Pass Zod errors to the global error handler
+      // The global error handler will format them appropriately
       if (error instanceof ZodError) {
-        // Format Zod errors into a more user-friendly format
-        const formattedErrors = error.errors.map(err => ({
-          path: err.path.join('.'),
-          message: err.message
-        }));
-        
-        return res.status(400).json({
-          status: 'error',
-          message: 'Validation failed',
-          errors: formattedErrors
-        });
+        next(error);
+        return;
       }
       
       // Pass other errors to the global error handler

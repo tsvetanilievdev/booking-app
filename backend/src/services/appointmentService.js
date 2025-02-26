@@ -1,5 +1,11 @@
 import prisma from '../db.js';
 import * as notificationUtils from '../utils/notificationUtils.js';
+import {
+    createNotFoundError,
+    createTimeSlotUnavailableError,
+    createDatabaseError,
+    createAppointmentConflictError
+} from '../utils/errorUtils.js';
 
 /**
  * Проверява за конфликти в графика на служителя
@@ -49,7 +55,7 @@ export const createAppointment = async (appointmentData) => {
         });
 
         if (!service) {
-            throw new Error('Service not found');
+            throw createNotFoundError('Service', serviceId);
         }
 
         // Изчисляваме крайния час според продължителността на услугата
@@ -63,7 +69,7 @@ export const createAppointment = async (appointmentData) => {
         );
 
         if (!isAvailable) {
-            throw new Error('This time slot is not available');
+            throw createTimeSlotUnavailableError('This time slot is not available. Please select another time.');
         }
 
         // Създаваме appointment с изчисления краен час
@@ -106,8 +112,10 @@ export const createAppointment = async (appointmentData) => {
         
         return appointment;
     } catch (error) {
-        console.error('Error creating appointment:', error);
-        throw error;
+        if (error.isOperational) {
+            throw error;
+        }
+        throw createDatabaseError('Failed to create appointment');
     }
 };
 
@@ -237,92 +245,99 @@ export const getMonthAppointments = async (userId) => {
 
 // Expose the getAvailableSlots function that already exists in the service
 export const getAvailableTimeSlots = async (userId, date, serviceId) => {
-    // Get the service to determine duration
-    const service = await prisma.service.findUnique({
-        where: { id: serviceId }
-    });
-    
-    if (!service) {
-        throw new Error('Service not found');
-    }
-    
-    // Get working hours (9 AM to 5 PM by default)
-    const workingHours = {
-        start: 9, // 9 AM
-        end: 17   // 5 PM
-    };
-    
-    // Get all appointments for the day
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    
-    const dayEnd = new Date(date);
-    dayEnd.setHours(23, 59, 59, 999);
-    
-    const appointments = await prisma.appointment.findMany({
-        where: {
-            userId,
-            isDeleted: false,
-            isCancelled: false,
-            startTime: {
-                gte: dayStart,
-                lte: dayEnd
-            }
-        },
-        orderBy: {
-            startTime: 'asc'
+    try {
+        // Get the service to determine duration
+        const service = await prisma.service.findUnique({
+            where: { id: serviceId }
+        });
+        
+        if (!service) {
+            throw createNotFoundError('Service', serviceId);
         }
-    });
-    
-    // Generate available time slots
-    const slots = [];
-    const slotDuration = service.duration; // in minutes
-    const slotIntervals = 30; // minimum slot interval in minutes
-    
-    // Start from working hours start
-    const startHour = workingHours.start;
-    const endHour = workingHours.end;
-    
-    // Generate all possible slots
-    for (let hour = startHour; hour < endHour; hour++) {
-        for (let minute = 0; minute < 60; minute += slotIntervals) {
-            const slotTime = new Date(date);
-            slotTime.setHours(hour, minute, 0, 0);
-            
-            // Skip slots in the past
-            if (slotTime < new Date()) continue;
-            
-            // Calculate slot end time
-            const slotEndTime = new Date(slotTime.getTime() + slotDuration * 60000);
-            
-            // Skip if slot ends after working hours
-            const slotEndHour = slotEndTime.getHours() + (slotEndTime.getMinutes() / 60);
-            if (slotEndHour > endHour) continue;
-            
-            // Check if slot conflicts with any existing appointment
-            const isAvailable = !appointments.some(appointment => {
-                const appointmentStart = new Date(appointment.startTime);
-                const appointmentEnd = new Date(appointment.endTime);
+        
+        // Get working hours (9 AM to 5 PM by default)
+        const workingHours = {
+            start: 9, // 9 AM
+            end: 17   // 5 PM
+        };
+        
+        // Get all appointments for the day
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        
+        const dayEnd = new Date(date);
+        dayEnd.setHours(23, 59, 59, 999);
+        
+        const appointments = await prisma.appointment.findMany({
+            where: {
+                userId,
+                isDeleted: false,
+                isCancelled: false,
+                startTime: {
+                    gte: dayStart,
+                    lte: dayEnd
+                }
+            },
+            orderBy: {
+                startTime: 'asc'
+            }
+        });
+        
+        // Generate available time slots
+        const slots = [];
+        const slotDuration = service.duration; // in minutes
+        const slotIntervals = 30; // minimum slot interval in minutes
+        
+        // Start from working hours start
+        const startHour = workingHours.start;
+        const endHour = workingHours.end;
+        
+        // Generate all possible slots
+        for (let hour = startHour; hour < endHour; hour++) {
+            for (let minute = 0; minute < 60; minute += slotIntervals) {
+                const slotTime = new Date(date);
+                slotTime.setHours(hour, minute, 0, 0);
                 
-                // Check for overlap
-                return (
-                    (slotTime >= appointmentStart && slotTime < appointmentEnd) || // Slot starts during appointment
-                    (slotEndTime > appointmentStart && slotEndTime <= appointmentEnd) || // Slot ends during appointment
-                    (slotTime <= appointmentStart && slotEndTime >= appointmentEnd) // Slot contains appointment
-                );
-            });
-            
-            if (isAvailable) {
-                slots.push({
-                    startTime: slotTime,
-                    endTime: slotEndTime,
-                    duration: slotDuration
+                // Skip slots in the past
+                if (slotTime < new Date()) continue;
+                
+                // Calculate slot end time
+                const slotEndTime = new Date(slotTime.getTime() + slotDuration * 60000);
+                
+                // Skip if slot ends after working hours
+                const slotEndHour = slotEndTime.getHours() + (slotEndTime.getMinutes() / 60);
+                if (slotEndHour > endHour) continue;
+                
+                // Check if slot conflicts with any existing appointment
+                const isAvailable = !appointments.some(appointment => {
+                    const appointmentStart = new Date(appointment.startTime);
+                    const appointmentEnd = new Date(appointment.endTime);
+                    
+                    // Check for overlap
+                    return (
+                        (slotTime >= appointmentStart && slotTime < appointmentEnd) || // Slot starts during appointment
+                        (slotEndTime > appointmentStart && slotEndTime <= appointmentEnd) || // Slot ends during appointment
+                        (slotTime <= appointmentStart && slotEndTime >= appointmentEnd) // Slot contains appointment
+                    );
                 });
+                
+                if (isAvailable) {
+                    slots.push({
+                        startTime: slotTime,
+                        endTime: slotEndTime,
+                        duration: slotDuration
+                    });
+                }
             }
         }
+        
+        return slots;
+    } catch (error) {
+        if (error.isOperational) {
+            throw error;
+        }
+        throw createDatabaseError('Failed to get available time slots');
     }
-    
-    return slots;
 };
 
 // Add a cancel appointment function
@@ -345,7 +360,7 @@ export const cancelAppointment = async (id) => {
         });
         
         if (!appointment) {
-            throw new Error('Appointment not found');
+            throw createNotFoundError('Appointment', id);
         }
         
         // Update the appointment to cancelled status
@@ -377,8 +392,10 @@ export const cancelAppointment = async (id) => {
         
         return updatedAppointment;
     } catch (error) {
-        console.error('Error cancelling appointment:', error);
-        throw error;
+        if (error.isOperational) {
+            throw error;
+        }
+        throw createDatabaseError('Failed to cancel appointment');
     }
 };
 
@@ -402,7 +419,7 @@ export const deleteAppointment = async (id) => {
         });
         
         if (!appointment) {
-            throw new Error('Appointment not found');
+            throw createNotFoundError('Appointment', id);
         }
         
         // Soft delete the appointment
@@ -423,8 +440,10 @@ export const deleteAppointment = async (id) => {
         
         return deletedAppointment;
     } catch (error) {
-        console.error('Error deleting appointment:', error);
-        throw error;
+        if (error.isOperational) {
+            throw error;
+        }
+        throw createDatabaseError('Failed to delete appointment');
     }
 };
 

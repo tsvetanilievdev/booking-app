@@ -1,12 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { getUserById } from '../services/userService.js';
+import { createUnauthorizedError, ErrorCodes, AppError } from '../utils/errorUtils.js';
 
 export const protect = async (req, res, next) => {
     try {
         const bearer = req.headers.authorization;
         
         if (!bearer || !bearer.startsWith('Bearer ')) {
-            return res.status(401).json({ message: 'Unauthorized' });
+            return next(createUnauthorizedError('Authentication token is missing or invalid'));
         }
 
         const token = bearer.split('Bearer ')[1];
@@ -16,7 +17,7 @@ export const protect = async (req, res, next) => {
             const user = await getUserById(decoded.id);
             
             if (!user) {
-                return res.status(401).json({ message: 'User not found' });
+                return next(createUnauthorizedError('User associated with this token no longer exists'));
             }
             req.user = {
                 id: user.id,
@@ -27,14 +28,32 @@ export const protect = async (req, res, next) => {
             next();
         } catch (error) {
             if (error.name === 'JsonWebTokenError') {
-                return res.status(401).json({ message: 'Invalid token' });
+                return next(createUnauthorizedError('Invalid authentication token'));
             }
             if (error.name === 'TokenExpiredError') {
-                return res.status(401).json({ message: 'Token expired' });
+                return next(createUnauthorizedError('Authentication token has expired'));
             }
             throw error;
         }
     } catch (error) {
-        return res.status(500).json({ message: 'Internal server error' });
+        next(error);
     }
+};
+
+export const restrictTo = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return next(createUnauthorizedError('You are not logged in'));
+        }
+        
+        if (!roles.includes(req.user.role)) {
+            return next(new AppError(
+                'You do not have permission to perform this action', 
+                403, 
+                ErrorCodes.FORBIDDEN
+            ));
+        }
+        
+        next();
+    };
 }; 

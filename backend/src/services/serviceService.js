@@ -1,5 +1,10 @@
 import prisma from '../db.js';
 import { Prisma } from '@prisma/client';
+import { 
+    createNotFoundError, 
+    createInvalidInputError, 
+    createDatabaseError 
+} from '../utils/errorUtils.js';
 
 export const createService = async (serviceData) => {
     try {
@@ -8,18 +13,22 @@ export const createService = async (serviceData) => {
         });
     } catch (error) {
         if (error instanceof Prisma.PrismaClientValidationError) {
-            throw new Error('Invalid service data provided');
+            throw createInvalidInputError('Invalid service data provided');
         }
-        throw error;
+        throw createDatabaseError('Failed to create service');
     }
 };
 
 export const getAllServices = async () => {
-    return await prisma.service.findMany({
-        orderBy: {
-            name: 'asc'
-        }
-    });
+    try {
+        return await prisma.service.findMany({
+            where: {
+                isDeleted: false
+            }
+        });
+    } catch (error) {
+        throw createDatabaseError('Failed to fetch services');
+    }
 };
 
 export const getServiceById = async (id) => {
@@ -29,15 +38,15 @@ export const getServiceById = async (id) => {
         });
         
         if (!service) {
-            throw new Error('Service not found');
+            throw createNotFoundError('Service', id);
         }
         
         return service;
     } catch (error) {
-        if (error.message === 'Service not found') {
+        if (error.isOperational) {
             throw error;
         }
-        throw new Error('Invalid service ID format');
+        throw createInvalidInputError('Invalid service ID format');
     }
 };
 
@@ -50,10 +59,10 @@ export const updateService = async (id, serviceData) => {
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
             if (error.code === 'P2025') {
-                throw new Error('Service not found');
+                throw createNotFoundError('Service', id);
             }
         }
-        throw new Error('Failed to update service');
+        throw createDatabaseError('Failed to update service');
     }
 };
 
@@ -65,9 +74,9 @@ export const deleteService = async (id) => {
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
             if (error.code === 'P2025') {
-                throw new Error('Service not found');
+                throw createNotFoundError('Service', id);
             }
         }
-        throw new Error('Failed to delete service');
+        throw createDatabaseError('Failed to delete service');
     }
 };
