@@ -1,109 +1,169 @@
-import { createUser, getUserByEmail, updateUser } from "../services/userService.js";
+import * as userService from "../services/userService.js";
 import bcrypt from 'bcrypt';
 import { createToken } from "../utils/authUtils.js";
-import { registerSchema, loginSchema, updateProfileSchema } from "../utils/validationUtils.js";
-import { ZodError } from "zod";
+import { registerSchema, loginSchema, updateProfileSchema, changePasswordSchema } from "../utils/validationUtils.js";
+import { AppError, ErrorCodes, createNotFoundError, createUnauthorizedError } from "../utils/errorUtils.js";
+import logger from '../utils/logger.js';
 
-
-export const register = async (req,res) => {
+/**
+ * Register a new user
+ * @route POST /api/auth/register
+ */
+export const register = async (req, res, next) => {
     try {
-    const validatedData = registerSchema.parse(req.body);
-        const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-        const user = await createUser(validatedData.name, validatedData.email, hashedPassword, validatedData.role);
-        const token = createToken(user);
-        res.status(201).json({token});
-
-    } catch (error) {
-        if (error instanceof ZodError) {
-            return res.status(401).json({ errors: error.errors });
+        // Validate request data
+        const validatedData = registerSchema.parse(req.body);
+        
+        // Check if user with this email already exists
+        const existingUser = await userService.getUserByEmail(validatedData.email);
+        if (existingUser) {
+            return next(new AppError(
+                'User with this email already exists', 
+                409, 
+                ErrorCodes.ALREADY_EXISTS
+            ));
         }
-        console.log("ERROR in register: ", error);
-        res.status(500).json({message: 'Failed to create user'});
+        
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+        
+        // Create the user
+        const user = await userService.createUser(
+            validatedData.name, 
+            validatedData.email, 
+            hashedPassword, 
+            validatedData.role
+        );
+        
+        // Generate JWT token
+        const token = createToken(user);
+        
+        // Return success response
+        res.status(201).json({
+            status: 'success',
+            message: 'User registered successfully',
+            data: { token }
+        });
+    } catch (error) {
+        next(error);
     }
 };
 
-export const login = async (req,res) => {
-    
+/**
+ * Login a user
+ * @route POST /api/auth/login
+ */
+export const login = async (req, res, next) => {
     try {
+        // Validate request data
         const validatedData = loginSchema.parse(req.body);
-        console.log("validatedData: ", validatedData);
-        const user = await getUserByEmail(validatedData.email);
+        
+        // Find the user by email
+        const user = await userService.getUserByEmail(validatedData.email);
         if (!user) {
-            return res.status(401).json({message: 'Invalid credentials'});
+            return next(createUnauthorizedError('Invalid credentials'));
         }
+        
+        // Verify password
         const isPasswordValid = await bcrypt.compare(validatedData.password, user.password);
         if (!isPasswordValid) {
-            return res.status(401).json({message: 'Invalid credentials'});
+            return next(createUnauthorizedError('Invalid credentials'));
         }
+        
+        // Generate JWT token
         const token = createToken(user);
-        res.status(200).json({token});
+        
+        // Return success response
+        res.status(200).json({
+            status: 'success',
+            message: 'Login successful',
+            data: { token }
+        });
     } catch (error) {
-        if (error instanceof ZodError) {
-            return res.status(401).json({ errors: error.errors });
-        }
-        console.log("ERROR in login: ", error);
-        res.status(500).json({message: 'Failed to login'});
+        next(error);
     }
 };
 
-export const getUser = async (req, res) => {
-    try {
-        const user = req.user;
-        res.status(200).json(user);
-    } catch (error) {
-        console.log("ERROR in getUser: ", error);
-        res.status(500).json({message: 'Failed to get profile'});
-    }
-};
-
-export const updateUser = async (req, res) => {
+/**
+ * Get the current user's profile
+ * @route GET /api/users/profile
+ */
+export const getUser = async (req, res, next) => {
     try {
         const user = req.user;
         
-        // Валидираме само изпратените полета
+        // Remove sensitive information
+        const { password, ...userWithoutPassword } = user;
+        
+        res.status(200).json({
+            status: 'success',
+            data: { user: userWithoutPassword }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Update the current user's profile
+ * @route PUT /api/users/profile
+ */
+export const updateUser = async (req, res, next) => {
+    try {
+        const user = req.user;
+        
+        // Validate request data
         const validatedData = updateProfileSchema.parse(req.body);
 
-        // Премахваме празните полета
+        // Filter out undefined values
         const filteredData = Object.fromEntries(
             Object.entries(validatedData)
                 .filter(([_, value]) => value !== undefined && value !== '')
         );
 
-        // Ако няма полета за обновяване
+        // Check if there are fields to update
         if (Object.keys(filteredData).length === 0) {
-            return res.status(400).json({ 
-                message: 'No valid fields provided for update' 
-            });
+            return next(new AppError(
+                'No valid fields provided for update',
+                400,
+                ErrorCodes.INVALID_INPUT
+            ));
         }
 
-        // Обновяваме само предоставените полета
-        const updatedUser = await updateUser(user.id, filteredData);
+        // Update the user
+        const updatedUser = await userService.updateUser(user.id, filteredData);
 
-        // Връщаме обновения потребител без чувствителна информация
+        // Remove sensitive information
         const { password, ...userWithoutPassword } = updatedUser;
-        res.status(200).json(userWithoutPassword);
-
-    } catch (error) {
-        console.error("Error in updateProfile:", error);
         
-        if (error.errors) { // Zod validation errors
-            return res.status(400).json({ 
-                message: 'Validation error', 
-                errors: error.errors 
-            });
-        }
-
-        res.status(500).json({ message: 'Failed to update profile' });
+        // Return success response
+        res.status(200).json({
+            status: 'success',
+            message: 'Profile updated successfully',
+            data: { user: userWithoutPassword }
+        });
+    } catch (error) {
+        next(error);
     }
 };
-export const deleteUser = async (req, res) => {
+
+/**
+ * Delete the current user's account
+ * @route DELETE /api/users/profile
+ */
+export const deleteUser = async (req, res, next) => {
     try {
         const user = req.user;
-        const deletedUser =await deleteUser(user.id);
-        res.status(200).json({ message: `User with email ${deletedUser.email} deleted successfully` });
+        
+        // Delete the user
+        const deletedUser = await userService.deleteUser(user.id);
+        
+        // Return success response
+        res.status(200).json({
+            status: 'success',
+            message: `User with email ${deletedUser.email} deleted successfully`
+        });
     } catch (error) {
-        console.log("ERROR in deleteUser: ", error);
-        res.status(500).json({ message: 'Failed to delete user' });
+        next(error);
     }
-
 };

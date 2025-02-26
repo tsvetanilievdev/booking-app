@@ -1,5 +1,44 @@
-import prisma from '../db.js';
+import { ZodError } from 'zod';
 
+/**
+ * Generic validation middleware factory that validates request data against a Zod schema
+ * @param {Object} schema - Zod schema to validate against
+ * @param {string} source - Request property to validate ('body', 'query', 'params')
+ * @returns {Function} Express middleware function
+ */
+export const validate = (schema, source = 'body') => {
+  return (req, res, next) => {
+    try {
+      // Validate the request data against the schema
+      const validatedData = schema.parse(req[source]);
+      
+      // Replace the request data with the validated (and potentially transformed) data
+      req[source] = validatedData;
+      
+      next();
+    } catch (error) {
+      if (error instanceof ZodError) {
+        // Format Zod errors into a more user-friendly format
+        const formattedErrors = error.errors.map(err => ({
+          path: err.path.join('.'),
+          message: err.message
+        }));
+        
+        return res.status(400).json({
+          status: 'error',
+          message: 'Validation failed',
+          errors: formattedErrors
+        });
+      }
+      
+      // Pass other errors to the global error handler
+      next(error);
+    }
+  };
+};
+
+// Legacy validation functions - kept for backward compatibility
+// These should be gradually replaced with the new validate middleware
 
 export const validateService = (req, res, next) => {
     const { name, price, duration } = req.body;
