@@ -4,6 +4,7 @@ import userRouter from './userRouter.js';
 import serviceRouter from './serviceRouter.js';
 import clientRouter from './clientRouter.js';
 import appointmentRouter from './appointmentRouter.js';
+import notificationRouter from './notificationRouter.js';
 const router = Router();
 
 // API routes
@@ -12,6 +13,7 @@ router.use('/api/users', userRouter);
 router.use('/api/services', serviceRouter);
 router.use('/api/clients', clientRouter);
 router.use('/api/appointments', appointmentRouter);
+router.use('/api/notifications', notificationRouter);
 // 404 handler
 router.use('/*', (req, res) => {
     res.status(404).json({ message: 'Not Found' });

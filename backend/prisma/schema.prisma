@@ -30,6 +30,12 @@ model Service {
   name      String
   price     Float
   duration  Int
+  bookingCount Int    @default(0)
+  revenue   Float    @default(0)
+  isAvailable Boolean @default(true)
+  availableDays Int[] @default([0, 1, 2, 3, 4, 5, 6]) // 0 = Sunday, 1 = Monday, etc.
+  availableTimeStart Int @default(9)  // 9 AM
+  availableTimeEnd   Int @default(17) // 5 PM
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
@@ -58,6 +64,12 @@ model Client {
   phone     String?
   email     String?
   notes     String[] @default([])
+  preferences Json?   @default("{}")
+  isVip     Boolean  @default(false)
+  attendanceRate Float?
+  lastVisit DateTime?
+  totalVisits Int     @default(0)
+  totalSpent Float    @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   appointments Appointment[]
