@@ -31,15 +31,16 @@ export const createUser = async (name, email, password, role = 'USER') => {
 
 export const getUserById = async (id) => {
     try {
-        const user = await prisma.user.findUnique({
+        const user = await prisma.user.findFirst({
             where: {
-                id
+                id,
+                isDeleted: false
             }
         });
         return user;
     } catch (error) {
         console.log("ERROR in getUserById: ", error);
-        throw new Error({message: 'User not found'});
+        throw new Error('User not found');
     }
 };
 
@@ -48,15 +49,19 @@ export const getAllUsers = async () => {
         where: {
             role: {
                 not: 'ADMIN'
-            }
+            },
+            isDeleted: false
         }
     });
 };
 
 export const getUserByEmail = async (email) => {
     try {
-        const user = await prisma.user.findUnique({
-            where: { email }
+        const user = await prisma.user.findFirst({
+            where: { 
+                email,
+                isDeleted: false
+            }
         });
         return user;
     } catch (error) {
@@ -97,8 +102,8 @@ export const updateUserPassword = async (id, newPassword) => {
             type: 'SERVER_ERROR',
             message: 'Failed to update user password'
         };
-    }W
-}
+    }
+};
 
 export const deleteUser = async (id) => {
     try {

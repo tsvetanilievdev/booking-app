@@ -4,8 +4,57 @@ import { AppError, ErrorCodes, createNotFoundError, createForbiddenError } from 
 import logger from '../utils/logger.js';
 
 /**
- * Create a new appointment
- * @route POST /api/appointments
+ * @swagger
+ * tags:
+ *   name: Appointments
+ *   description: Appointment management
+ */
+
+/**
+ * @swagger
+ * /appointments:
+ *   post:
+ *     summary: Create a new appointment
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateAppointmentRequest'
+ *     responses:
+ *       201:
+ *         description: Appointment created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Appointment created successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     appointment:
+ *                       type: object
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *       409:
+ *         description: Time slot unavailable
+ *       500:
+ *         description: Server error
  */
 export const createAppointment = async (req, res, next) => {
     try {
@@ -43,8 +92,38 @@ export const createAppointment = async (req, res, next) => {
 };
 
 /**
- * Get all appointments for the current user
- * @route GET /api/appointments
+ * @swagger
+ * /appointments:
+ *   get:
+ *     summary: Get all appointments for the current user
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of appointments
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 results:
+ *                   type: integer
+ *                   example: 5
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     appointments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 export const getAppointments = async (req, res, next) => {
     try {
@@ -61,8 +140,46 @@ export const getAppointments = async (req, res, next) => {
 };
 
 /**
- * Get a specific appointment by ID
- * @route GET /api/appointments/:id
+ * @swagger
+ * /appointments/{id}:
+ *   get:
+ *     summary: Get a specific appointment by ID
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Appointment ID
+ *     responses:
+ *       200:
+ *         description: Appointment details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     appointment:
+ *                       type: object
+ *       400:
+ *         description: Invalid ID format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Appointment not found
+ *       500:
+ *         description: Server error
  */
 export const getAppointmentById = async (req, res, next) => {
     try {
@@ -93,8 +210,57 @@ export const getAppointmentById = async (req, res, next) => {
 };
 
 /**
- * Update an appointment
- * @route PUT /api/appointments/:id
+ * @swagger
+ * /appointments/{id}:
+ *   put:
+ *     summary: Update an appointment
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Appointment ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateAppointmentRequest'
+ *     responses:
+ *       200:
+ *         description: Appointment updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Appointment updated successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     appointment:
+ *                       type: object
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Appointment not found
+ *       409:
+ *         description: Time slot unavailable
+ *       500:
+ *         description: Server error
  */
 export const updateAppointment = async (req, res, next) => {
     try {
@@ -142,8 +308,33 @@ export const updateAppointment = async (req, res, next) => {
 };
 
 /**
- * Delete an appointment
- * @route DELETE /api/appointments/:id
+ * @swagger
+ * /appointments/{id}:
+ *   delete:
+ *     summary: Delete an appointment
+ *     tags: [Appointments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Appointment ID
+ *     responses:
+ *       204:
+ *         description: Appointment deleted successfully
+ *       400:
+ *         description: Invalid ID format
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Appointment not found
+ *       500:
+ *         description: Server error
  */
 export const deleteAppointment = async (req, res, next) => {
     try {
