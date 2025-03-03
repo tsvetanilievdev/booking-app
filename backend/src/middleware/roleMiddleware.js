@@ -7,10 +7,8 @@ export const requireRole = (role) => {
     };
 };
 
-// Използване в routes:
-adminRouter.use(protect);  // Първо проверяваме дали е логнат
-adminRouter.use(requireRole('ADMIN')); // После проверяваме дали е админ 
-
-// Този код трябва да се премести в отделен файл - например backend/src/routes/adminRouter.js
-// Тук в roleMiddleware.js трябва да остане само middleware функционалността
+// This middleware can be used after authentication to check if a user has the required role
+// Example usage in routes:
+// router.use(authenticate);  // First check if user is logged in
+// router.use(requireRole('ADMIN')); // Then check if user is an admin
 

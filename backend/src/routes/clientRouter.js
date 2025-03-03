@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import * as clientController from '../controllers/clientController.js';
-import { protect } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 import { validateClient } from '../middleware/validationMiddleware.js';
 
 const router = Router();
 
 // All client routes should be protected
-router.use(protect);
+router.use(authenticate);
 
 // Get VIP clients
 router.get('/vip', clientController.getVipClients);

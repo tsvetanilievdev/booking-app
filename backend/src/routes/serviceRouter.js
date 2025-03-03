@@ -1,27 +1,49 @@
 import { Router } from 'express';
 import * as serviceController from '../controllers/serviceController.js';
-import { protect } from '../middleware/authMiddleware.js';
-import { validateService } from '../middleware/validationMiddleware.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-// Public routes
+/**
+ * @route GET /api/services
+ * @desc Get all services
+ * @access Public
+ */
 router.get('/', serviceController.getAllServices);
+
+/**
+ * @route GET /api/services/:id
+ * @desc Get service by ID
+ * @access Public
+ */
 router.get('/:id', serviceController.getServiceById);
 
-// Protected routes (require authentication)
-router.use(protect);
+/**
+ * @route POST /api/services
+ * @desc Create a new service
+ * @access Private (Admin only)
+ */
+router.post('/', authenticate, serviceController.createService);
 
-// Analytics routes
-router.get('/analytics/popular', serviceController.getPopularServices);
-router.get('/analytics/revenue', serviceController.getServiceRevenue);
+/**
+ * @route PUT /api/services/:id
+ * @desc Update a service
+ * @access Private (Admin only)
+ */
+router.put('/:id', authenticate, serviceController.updateService);
 
-// CRUD routes
-router.post('/', validateService, serviceController.createService);
-router.put('/:id', validateService, serviceController.updateService);
-router.delete('/:id', serviceController.deleteService);
+/**
+ * @route DELETE /api/services/:id
+ * @desc Delete a service
+ * @access Private (Admin only)
+ */
+router.delete('/:id', authenticate, serviceController.deleteService);
 
-// Availability management
-router.put('/:id/availability', serviceController.updateServiceAvailability);
+/**
+ * @route GET /api/services/analytics
+ * @desc Get service analytics
+ * @access Private (Admin only)
+ */
+router.get('/analytics/data', authenticate, serviceController.getServiceAnalytics);
 
 export default router; 

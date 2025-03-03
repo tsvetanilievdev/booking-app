@@ -1,102 +1,121 @@
 import * as serviceService from '../services/serviceService.js';
-import { AppError } from '../utils/errorUtils.js';
+import { ApiError, ErrorTypes, asyncHandler } from '../middleware/errorHandler.js';
+import logger from '../utils/logger.js';
 import prisma from '../db.js';
 
-export const createService = async (req, res, next) => {
-    try {
-        const service = await serviceService.createService(req.body);
-        res.status(201).json({
-            status: 'success',
-            message: 'Service created successfully',
-            data: { service }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+// Get all services
+export const getAllServices = asyncHandler(async (req, res) => {
+  logger.info('Fetching all services');
+  const services = await serviceService.getAllServices();
+  
+  res.status(200).json({
+    status: 'success',
+    data: services
+  });
+});
 
-export const getAllServices = async (req, res, next) => {
-    try {
-        const services = await serviceService.getAllServices();
-        res.json({
-            status: 'success',
-            results: services.length,
-            data: { services }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+// Get service by ID
+export const getServiceById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Fetching service with ID: ${id}`);
+  
+  const service = await serviceService.getServiceById(id);
+  
+  if (!service) {
+    throw new ApiError(404, `Service with ID ${id} not found`, { id });
+  }
+  
+  res.status(200).json({
+    status: 'success',
+    data: service
+  });
+});
 
-export const getServiceById = async (req, res, next) => {
-    try {
-        const service = await serviceService.getServiceById(req.params.id);
-        if (!service) {
-            return res.status(404).json({ 
-                status: 'error',
-                message: 'Service not found' 
-            });
-        }
-        res.json({
-            status: 'success',
-            data: { service }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+// Create new service
+export const createService = asyncHandler(async (req, res) => {
+  logger.info('Creating new service', { serviceData: req.body });
+  
+  // Validate required fields
+  const { name, description, duration, price } = req.body;
+  
+  if (!name || !duration || !price) {
+    throw new ApiError(400, 'Missing required fields', { 
+      required: ['name', 'duration', 'price'],
+      received: Object.keys(req.body)
+    });
+  }
+  
+  const newService = await serviceService.createService(req.body);
+  
+  res.status(201).json({
+    status: 'success',
+    message: 'Service created successfully',
+    data: newService
+  });
+});
 
-export const updateService = async (req, res, next) => {
-    try {
-        const service = await serviceService.updateService(req.params.id, req.body);
-        res.json({
-            status: 'success',
-            message: 'Service updated successfully',
-            data: { service }
-        });
-    } catch (error) {
-        if (error.message === 'Service not found') {
-            return res.status(404).json({ 
-                status: 'error',
-                message: 'Service not found',
-                details: `Service with ID ${req.params.id} does not exist`
-            });
-        }
-        
-        console.error('Update service error:', error);
-        res.status(500).json({ 
-            status: 'error',
-            message: 'Failed to update service',
-            error: error.message 
-        });
-    }
-};
+// Update service
+export const updateService = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Updating service with ID: ${id}`, { updateData: req.body });
+  
+  // Check if service exists
+  const existingService = await serviceService.getServiceById(id);
+  
+  if (!existingService) {
+    throw new ApiError(404, `Service with ID ${id} not found`, { id });
+  }
+  
+  const updatedService = await serviceService.updateService(id, req.body);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Service updated successfully',
+    data: updatedService
+  });
+});
 
-export const deleteService = async (req, res, next) => {
-    try {
-        const deletedService = await serviceService.deleteService(req.params.id);
-        res.json({ 
-            status: 'success',
-            message: 'Service deleted successfully', 
-            data: { service: deletedService }
-        });
-    } catch (error) {
-        if (error.message === 'Service not found') {
-            return res.status(404).json({ 
-                status: 'error',
-                message: 'Service not found',
-                details: `Service with ID ${req.params.id} does not exist`
-            });
-        }
-        
-        console.error('Delete service error:', error);
-        res.status(500).json({ 
-            status: 'error',
-            message: 'Failed to delete service',
-            error: error.message 
-        });
-    }
-};
+// Delete service
+export const deleteService = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  logger.info(`Deleting service with ID: ${id}`);
+  
+  // Check if service exists
+  const existingService = await serviceService.getServiceById(id);
+  
+  if (!existingService) {
+    throw new ApiError(404, `Service with ID ${id} not found`, { id });
+  }
+  
+  // Check if service has appointments
+  const hasAppointments = await serviceService.serviceHasAppointments(id);
+  
+  if (hasAppointments) {
+    throw new ApiError(400, 'Cannot delete service with existing appointments', { 
+      serviceId: id,
+      suggestion: 'Archive the service instead of deleting it'
+    });
+  }
+  
+  await serviceService.deleteService(id);
+  
+  res.status(200).json({
+    status: 'success',
+    message: 'Service deleted successfully'
+  });
+});
+
+// Get service analytics
+export const getServiceAnalytics = asyncHandler(async (req, res) => {
+  logger.info('Fetching service analytics');
+  
+  const analytics = await serviceService.getServiceAnalytics();
+  
+  res.status(200).json({
+    status: 'success',
+    data: analytics
+  });
+});
 
 /**
  * @swagger

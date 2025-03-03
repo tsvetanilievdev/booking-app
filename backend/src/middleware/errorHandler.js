@@ -2,113 +2,100 @@ import { ZodError } from 'zod';
 import logger from '../utils/logger.js';
 import { ErrorCodes, getUserFriendlyMessage } from '../utils/errorUtils.js';
 
+// Custom error class for API errors
+export class ApiError extends Error {
+  constructor(statusCode, message, details = null) {
+    super(message);
+    this.statusCode = statusCode;
+    this.details = details;
+    this.name = this.constructor.name;
+    Error.captureStackTrace(this, this.constructor);
+  }
+}
+
+// Error types
+export const ErrorTypes = {
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  AUTHORIZATION_ERROR: 'AUTHORIZATION_ERROR',
+  RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  BAD_REQUEST: 'BAD_REQUEST'
+};
+
 /**
  * Global error handler middleware
  */
 export const errorHandler = (err, req, res, next) => {
-    // Log the error for debugging
-    logger.error(`${err.name}: ${err.message}`, { 
-        stack: err.stack,
+    // Default error values
+    let statusCode = err.statusCode || 500;
+    let errorType = err.name || ErrorTypes.INTERNAL_SERVER_ERROR;
+    let message = err.message || 'Something went wrong';
+    let details = err.details || null;
+    
+    // Handle Prisma errors
+    if (err.code && err.code.startsWith('P')) {
+        errorType = ErrorTypes.DATABASE_ERROR;
+        
+        // Map common Prisma error codes to appropriate status codes and messages
+        switch (err.code) {
+            case 'P2002': // Unique constraint failed
+                statusCode = 409;
+                message = 'A record with this data already exists';
+                details = err.meta?.target || null;
+                break;
+            case 'P2025': // Record not found
+                statusCode = 404;
+                message = 'The requested resource was not found';
+                break;
+            case 'P2003': // Foreign key constraint failed
+                statusCode = 400;
+                message = 'Related record does not exist';
+                details = err.meta?.field_name || null;
+                break;
+            default:
+                statusCode = 500;
+                message = 'Database operation failed';
+        }
+    }
+    
+    // Handle validation errors (e.g., from express-validator)
+    if (err.array && typeof err.array === 'function') {
+        errorType = ErrorTypes.VALIDATION_ERROR;
+        statusCode = 400;
+        message = 'Validation failed';
+        details = err.array();
+    }
+    
+    // Handle JWT errors
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+        errorType = ErrorTypes.AUTHENTICATION_ERROR;
+        statusCode = 401;
+        message = err.name === 'TokenExpiredError' ? 'Token has expired' : 'Invalid token';
+    }
+    
+    // Log the error
+    const logLevel = statusCode >= 500 ? 'error' : 'warn';
+    logger[logLevel](`${errorType}: ${message}`, {
+        statusCode,
         path: req.path,
         method: req.method,
-        code: err.code || 'UNKNOWN_ERROR'
+        ip: req.ip,
+        userId: req.user?.id || 'unauthenticated',
+        details,
+        stack: statusCode >= 500 ? err.stack : undefined
     });
-
-    // Enhanced response structure
-    const errorResponse = {
-        status: 'error',
-        message: '',
-        code: '',
-        details: process.env.NODE_ENV === 'production' ? undefined : err.message,
-        errors: []
-    };
-
-    // Handle Prisma errors
-    if (err.name === 'PrismaClientKnownRequestError') {
-        if (err.code === 'P2002') {
-            errorResponse.statusCode = 409;
-            errorResponse.message = 'A record with this value already exists';
-            errorResponse.code = ErrorCodes.ALREADY_EXISTS;
-            
-            // Add field information if available
-            if (err.meta && err.meta.target) {
-                errorResponse.errors = err.meta.target.map(field => ({
-                    field,
-                    message: `A record with this ${field} already exists`
-                }));
-            }
-            
-            return res.status(409).json(errorResponse);
-        }
-        if (err.code === 'P2025') {
-            errorResponse.statusCode = 404;
-            errorResponse.message = 'Record not found';
-            errorResponse.code = ErrorCodes.NOT_FOUND;
-            
-            return res.status(404).json(errorResponse);
-        }
-        
-        errorResponse.statusCode = 500;
-        errorResponse.message = 'Database error';
-        errorResponse.code = ErrorCodes.DATABASE_ERROR;
-        
-        return res.status(500).json(errorResponse);
-    }
-
-    // Handle Zod validation errors
-    if (err instanceof ZodError) {
-        const formattedErrors = err.errors.map(error => ({
-            field: error.path.join('.'),
-            message: error.message,
-            code: 'INVALID_FIELD'
-        }));
-
-        errorResponse.statusCode = 400;
-        errorResponse.message = 'Validation failed';
-        errorResponse.code = ErrorCodes.VALIDATION_ERROR;
-        errorResponse.errors = formattedErrors;
-        
-        return res.status(400).json(errorResponse);
-    }
-
-    // Handle JWT errors
-    if (err.name === 'JsonWebTokenError') {
-        errorResponse.statusCode = 401;
-        errorResponse.message = 'Invalid token';
-        errorResponse.code = ErrorCodes.INVALID_TOKEN;
-        
-        return res.status(401).json(errorResponse);
-    }
-
-    if (err.name === 'TokenExpiredError') {
-        errorResponse.statusCode = 401;
-        errorResponse.message = 'Token expired';
-        errorResponse.code = ErrorCodes.TOKEN_EXPIRED;
-        
-        return res.status(401).json(errorResponse);
-    }
-
-    // Handle custom application errors
-    if (err.isOperational) {
-        const statusCode = err.statusCode || 400;
-        
-        errorResponse.statusCode = statusCode;
-        errorResponse.message = err.message;
-        errorResponse.code = err.code || 'APPLICATION_ERROR';
-        errorResponse.userMessage = getUserFriendlyMessage(err.code);
-        
-        return res.status(statusCode).json(errorResponse);
-    }
-
-    // Default error response for unhandled errors
-    errorResponse.statusCode = err.status || 500;
-    errorResponse.message = process.env.NODE_ENV === 'production' 
-        ? 'Internal server error' 
-        : err.message || 'Internal server error';
-    errorResponse.code = ErrorCodes.INTERNAL_ERROR;
-    errorResponse.userMessage = getUserFriendlyMessage(ErrorCodes.INTERNAL_ERROR);
     
-    res.status(errorResponse.statusCode).json(errorResponse);
+    // Send response
+    res.status(statusCode).json({
+        error: {
+            type: errorType,
+            message,
+            details,
+            timestamp: new Date().toISOString()
+        }
+    });
 };
 
 /**
@@ -126,4 +113,16 @@ export const jsonErrorHandler = (err, req, res, next) => {
         });
     }
     next(err);
+};
+
+// Not found handler middleware
+export const notFoundHandler = (req, res, next) => {
+    const error = new ApiError(404, `Route not found: ${req.originalUrl}`, { path: req.originalUrl });
+    error.name = ErrorTypes.RESOURCE_NOT_FOUND;
+    next(error);
+};
+
+// Async handler to catch errors in async route handlers
+export const asyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
 }; 

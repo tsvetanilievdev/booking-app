@@ -1,5 +1,5 @@
 import express from 'express';
-import { protect } from '../middleware/authMiddleware.js';
+import { authenticate } from '../middleware/authMiddleware.js';
 import { validate } from '../middleware/validationMiddleware.js';
 import { createAppointmentSchema, updateAppointmentSchema, idParamSchema } from '../utils/validationUtils.js';
 import * as appointmentController from '../controllers/appointmentController.js';
@@ -7,7 +7,7 @@ import * as appointmentController from '../controllers/appointmentController.js'
 const router = express.Router();
 
 // Всички routes изискват автентикация
-router.use(protect);
+router.use(authenticate);
 
 // GET /api/appointments - Вземи всички appointments на потребителя
 router.get('/', appointmentController.getAppointments);
