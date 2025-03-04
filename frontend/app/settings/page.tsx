@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -18,9 +18,12 @@ import {
   FormControl,
   InputLabel,
   Alert,
-  Snackbar
+  Snackbar,
+  SelectChangeEvent
 } from '@mui/material';
 import MainLayout from '../components/layout/MainLayout';
+import { useLanguage } from '../translations/LanguageContext';
+import { Language } from '../translations';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -49,12 +52,12 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function SettingsPage() {
+  const { language, setLanguage, t } = useLanguage();
   const [tabValue, setTabValue] = useState(0);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [appointmentReminders, setAppointmentReminders] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
-  const [language, setLanguage] = useState('en');
   const [timeFormat, setTimeFormat] = useState('24h');
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
@@ -77,11 +80,15 @@ export default function SettingsPage() {
     setSnackbarOpen(true);
   };
 
+  const handleLanguageChange = (event: SelectChangeEvent) => {
+    setLanguage(event.target.value as Language);
+  };
+
   return (
     <MainLayout>
       <Box sx={{ width: '100%', p: 3 }}>
         <Typography variant="h4" gutterBottom>
-          Settings
+          {t('settings.title')}
         </Typography>
         
         <Paper sx={{ width: '100%', mt: 3 }}>
@@ -91,55 +98,55 @@ export default function SettingsPage() {
             aria-label="settings tabs"
             sx={{ borderBottom: 1, borderColor: 'divider' }}
           >
-            <Tab label="Account" />
-            <Tab label="Notifications" />
-            <Tab label="Application" />
+            <Tab label={t('settings.tabs.account')} />
+            <Tab label={t('settings.tabs.notifications')} />
+            <Tab label={t('settings.tabs.application')} />
           </Tabs>
           
           <TabPanel value={tabValue} index={0}>
             <Typography variant="h6" gutterBottom>
-              Account Settings
+              {t('settings.account.title')}
             </Typography>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Name"
+                  label={t('settings.account.name')}
                   defaultValue="John Doe"
                   margin="normal"
                 />
                 <TextField
                   fullWidth
-                  label="Email"
+                  label={t('settings.account.email')}
                   defaultValue="john.doe@example.com"
                   margin="normal"
                 />
                 <TextField
                   fullWidth
-                  label="Phone"
+                  label={t('settings.account.phone')}
                   defaultValue="+1 (123) 456-7890"
                   margin="normal"
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Change Password
+                  {t('settings.account.changePassword')}
                 </Typography>
                 <TextField
                   fullWidth
-                  label="Current Password"
+                  label={t('settings.account.currentPassword')}
                   type="password"
                   margin="normal"
                 />
                 <TextField
                   fullWidth
-                  label="New Password"
+                  label={t('settings.account.newPassword')}
                   type="password"
                   margin="normal"
                 />
                 <TextField
                   fullWidth
-                  label="Confirm New Password"
+                  label={t('settings.account.confirmNewPassword')}
                   type="password"
                   margin="normal"
                 />
@@ -147,7 +154,7 @@ export default function SettingsPage() {
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
                 <Button variant="contained" color="primary" onClick={handleSaveAccountSettings}>
-                  Save Changes
+                  {t('settings.account.saveChanges')}
                 </Button>
               </Grid>
             </Grid>
@@ -155,7 +162,7 @@ export default function SettingsPage() {
           
           <TabPanel value={tabValue} index={1}>
             <Typography variant="h6" gutterBottom>
-              Notification Settings
+              {t('settings.notifications.title')}
             </Typography>
             <FormControlLabel
               control={
@@ -164,7 +171,7 @@ export default function SettingsPage() {
                   onChange={() => setEmailNotifications(!emailNotifications)}
                 />
               }
-              label="Email Notifications"
+              label={t('settings.notifications.emailNotifications')}
             />
             <Box sx={{ mb: 2 }} />
             <FormControlLabel
@@ -174,7 +181,7 @@ export default function SettingsPage() {
                   onChange={() => setSmsNotifications(!smsNotifications)}
                 />
               }
-              label="SMS Notifications"
+              label={t('settings.notifications.smsNotifications')}
             />
             <Box sx={{ mb: 2 }} />
             <FormControlLabel
@@ -184,18 +191,18 @@ export default function SettingsPage() {
                   onChange={() => setAppointmentReminders(!appointmentReminders)}
                 />
               }
-              label="Appointment Reminders"
+              label={t('settings.notifications.appointmentReminders')}
             />
             <Box sx={{ mt: 3 }}>
               <Button variant="contained" color="primary" onClick={handleSaveNotificationSettings}>
-                Save Notification Settings
+                {t('settings.notifications.saveSettings')}
               </Button>
             </Box>
           </TabPanel>
           
           <TabPanel value={tabValue} index={2}>
             <Typography variant="h6" gutterBottom>
-              Application Settings
+              {t('settings.application.title')}
             </Typography>
             <FormControlLabel
               control={
@@ -204,40 +211,41 @@ export default function SettingsPage() {
                   onChange={() => setDarkMode(!darkMode)}
                 />
               }
-              label="Dark Mode"
+              label={t('settings.application.darkMode')}
             />
             <Box sx={{ mb: 3 }} />
             
             <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel id="language-select-label">Language</InputLabel>
+              <InputLabel id="language-select-label">{t('settings.application.language')}</InputLabel>
               <Select
                 labelId="language-select-label"
                 value={language}
-                label="Language"
-                onChange={(e) => setLanguage(e.target.value as string)}
+                label={t('settings.application.language')}
+                onChange={handleLanguageChange}
               >
-                <MenuItem value="en">English</MenuItem>
-                <MenuItem value="es">Spanish</MenuItem>
-                <MenuItem value="fr">French</MenuItem>
-                <MenuItem value="de">German</MenuItem>
+                <MenuItem value="en">{t('settings.application.languages.english')}</MenuItem>
+                <MenuItem value="bg">{t('settings.application.languages.bulgarian')}</MenuItem>
+                <MenuItem value="es">{t('settings.application.languages.spanish')}</MenuItem>
+                <MenuItem value="fr">{t('settings.application.languages.french')}</MenuItem>
+                <MenuItem value="de">{t('settings.application.languages.german')}</MenuItem>
               </Select>
             </FormControl>
             
             <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel id="time-format-select-label">Time Format</InputLabel>
+              <InputLabel id="time-format-select-label">{t('settings.application.timeFormat')}</InputLabel>
               <Select
                 labelId="time-format-select-label"
                 value={timeFormat}
-                label="Time Format"
+                label={t('settings.application.timeFormat')}
                 onChange={(e) => setTimeFormat(e.target.value as string)}
               >
-                <MenuItem value="12h">12-hour (AM/PM)</MenuItem>
-                <MenuItem value="24h">24-hour</MenuItem>
+                <MenuItem value="12h">{t('settings.application.timeFormats.12h')}</MenuItem>
+                <MenuItem value="24h">{t('settings.application.timeFormats.24h')}</MenuItem>
               </Select>
             </FormControl>
             
             <Button variant="contained" color="primary" onClick={handleSaveAppSettings}>
-              Save Application Settings
+              {t('settings.application.saveSettings')}
             </Button>
           </TabPanel>
         </Paper>
@@ -249,7 +257,7 @@ export default function SettingsPage() {
         onClose={() => setSnackbarOpen(false)}
       >
         <Alert onClose={() => setSnackbarOpen(false)} severity="success">
-          Settings saved successfully!
+          {t('general.success')}
         </Alert>
       </Snackbar>
     </MainLayout>

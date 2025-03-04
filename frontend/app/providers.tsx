@@ -4,6 +4,7 @@ import { useState, useMemo, createContext, useContext, useEffect, ReactNode } fr
 import { ThemeProvider as MUIThemeProvider, CssBaseline } from '@mui/material';
 import { lightTheme, darkTheme } from './theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LanguageProvider } from './translations/LanguageContext';
 
 // Define the ThemeContext
 type ThemeMode = 'light' | 'dark';
@@ -71,7 +72,9 @@ export function Providers({ children }: ProvidersProps) {
       <ThemeContext.Provider value={themeContextValue}>
         <MUIThemeProvider theme={theme}>
           <CssBaseline />
-          {children}
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
         </MUIThemeProvider>
       </ThemeContext.Provider>
     </QueryClientProvider>

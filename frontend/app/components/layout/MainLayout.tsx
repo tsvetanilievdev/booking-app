@@ -35,11 +35,13 @@ import {
   ChevronLeft as ChevronLeftIcon,
   Logout as LogoutIcon,
   Person as PersonIcon,
-  BarChart as AnalyticsIcon
+  BarChart as AnalyticsIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useTheme } from '../../providers';
+import { useLanguage } from '../../translations/LanguageContext';
 
 const drawerWidth = 240;
 
@@ -47,8 +49,15 @@ interface MainLayoutProps {
   children: ReactNode;
 }
 
+interface MenuItem {
+  text: string;
+  icon: React.ReactNode;
+  path: string;
+}
+
 export default function MainLayout({ children }: MainLayoutProps) {
   const { mode, toggleTheme } = useTheme();
+  const { t } = useLanguage();
   const muiTheme = useMuiTheme();
   const pathname = usePathname();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
@@ -77,13 +86,14 @@ export default function MainLayout({ children }: MainLayoutProps) {
     setNotificationsAnchorEl(null);
   };
   
-  const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
-    { text: 'Clients', icon: <PeopleIcon />, path: '/clients' },
-    { text: 'Services', icon: <ServicesIcon />, path: '/services' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  const menuItems: MenuItem[] = [
+    { text: t('navigation.dashboard'), icon: <DashboardIcon />, path: '/dashboard' },
+    { text: t('navigation.calendar'), icon: <CalendarIcon />, path: '/calendar' },
+    { text: t('navigation.clients'), icon: <PeopleIcon />, path: '/clients' },
+    { text: t('navigation.services'), icon: <ServicesIcon />, path: '/services' },
+    { text: t('navigation.analytics'), icon: <AnalyticsIcon />, path: '/analytics' },
+    { text: t('navigation.settings'), icon: <SettingsIcon />, path: '/settings' },
+    { text: t('navigation.admin'), icon: <AdminIcon />, path: '/admin' },
   ];
   
   const drawer = (
@@ -95,7 +105,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         px: [1]
       }}>
         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-          Booking System
+          {t('common.bookingSystem')}
         </Typography>
         <IconButton onClick={handleDrawerToggle}>
           <ChevronLeftIcon />
@@ -103,32 +113,30 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </Toolbar>
       <Divider />
       <List>
-        {menuItems.map((item) => (
+        {menuItems.map((item: MenuItem) => (
           <ListItem key={item.text} disablePadding>
-            <ListItemButton 
-              component={Link} 
-              href={item.path}
-              selected={pathname === item.path}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.light',
-                  color: 'primary.contrastText',
-                  '&:hover': {
+            <Link href={item.path} style={{ textDecoration: 'none', width: '100%', color: 'inherit' }}>
+              <ListItemButton
+                selected={pathname === item.path}
+                sx={{
+                  '&.Mui-selected': {
                     backgroundColor: 'primary.main',
-                  },
-                  '& .MuiListItemIcon-root': {
                     color: 'primary.contrastText',
-                  }
-                }
-              }}
-            >
-              <ListItemIcon sx={{ 
-                color: pathname === item.path ? 'primary.contrastText' : 'inherit'
-              }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
+                    '&:hover': {
+                      backgroundColor: 'primary.dark',
+                    },
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.contrastText',
+                    },
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ color: pathname === item.path ? 'primary.contrastText' : 'inherit' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </Link>
           </ListItem>
         ))}
       </List>
