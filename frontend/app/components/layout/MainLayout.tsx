@@ -34,7 +34,8 @@ import {
   Brightness7 as LightModeIcon,
   ChevronLeft as ChevronLeftIcon,
   Logout as LogoutIcon,
-  Person as PersonIcon
+  Person as PersonIcon,
+  BarChart as AnalyticsIcon
 } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -81,6 +82,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
     { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
     { text: 'Clients', icon: <PeopleIcon />, path: '/clients' },
     { text: 'Services', icon: <ServicesIcon />, path: '/services' },
+    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
   

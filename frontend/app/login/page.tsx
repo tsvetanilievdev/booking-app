@@ -182,7 +182,7 @@ export default function Login() {
                   }}
                 />
                 <Box sx={{ textAlign: 'right', mt: 1 }}>
-                  <Link href="/forgot-password" style={{ textDecoration: 'none' }}>
+                  <Link href="/reset-password" style={{ textDecoration: 'none' }}>
                     <Typography variant="body2" color="primary">
                       Forgot password?
                     </Typography>
