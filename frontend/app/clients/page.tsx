@@ -51,13 +51,15 @@ import {
   Notes as NotesIcon,
   MoreVert as MoreVertIcon,
   StarOutline as StarOutlineIcon,
-  Star as StarIcon
+  Star as StarIcon,
+  PersonOff as PersonOffIcon,
+  PersonAdd as PersonAddIcon
 } from '@mui/icons-material';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import { format } from 'date-fns';
 import MainLayout from '../components/layout/MainLayout';
-import api from '../api/apiClient';
+import { getClients, createClient, updateClient, deleteClient, Client as ApiClient, CreateClientData, UpdateClientData } from '../api/clientApi';
 
 interface Appointment {
   id: string;
@@ -68,16 +70,10 @@ interface Appointment {
   price: number;
 }
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  notes?: string;
-  appointmentCount: number;
-  totalSpent: number;
+interface Client extends ApiClient {
+  totalSpent?: number;
   lastAppointment?: string;
-  isVip: boolean;
+  isVip?: boolean;
   appointments?: Appointment[];
 }
 
@@ -93,10 +89,8 @@ const ClientSchema = Yup.object().shape({
   phone: Yup.string()
     .matches(/^[0-9+\-() ]+$/, 'Invalid phone number format')
     .min(7, 'Phone number is too short')
-    .max(20, 'Phone number is too long')
-    .required('Phone number is required'),
-  notes: Yup.string()
-    .max(500, 'Notes must be less than 500 characters')
+    .max(20, 'Phone number is too long'),
+  notes: Yup.array().of(Yup.string())
 });
 
 export default function Clients() {
@@ -114,102 +108,58 @@ export default function Clients() {
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [filterValue, setFilterValue] = useState<'all' | 'vip'>('all');
-
-  // Mock clients data
-  const mockClients: Client[] = [
-    {
-      id: '1',
-      name: 'Alice Johnson',
-      email: 'alice@example.com',
-      phone: '555-1234',
-      notes: 'Prefers appointments in the morning.',
-      appointmentCount: 12,
-      totalSpent: 575.50,
-      lastAppointment: '2024-05-28',
-      isVip: true,
-      appointments: [
-        { id: 'a1', date: '2024-05-28', startTime: 9, status: 'COMPLETED', serviceName: 'Haircut', price: 35 },
-        { id: 'a2', date: '2024-04-30', startTime: 10, status: 'COMPLETED', serviceName: 'Manicure', price: 25 },
-        { id: 'a3', date: '2024-06-15', startTime: 14, status: 'SCHEDULED', serviceName: 'Facial', price: 50 }
-      ]
-    },
-    {
-      id: '2',
-      name: 'Bob Smith',
-      email: 'bob@example.com',
-      phone: '555-5678',
-      appointmentCount: 5,
-      totalSpent: 210.00,
-      lastAppointment: '2024-05-15',
-      isVip: false,
-      appointments: [
-        { id: 'b1', date: '2024-05-15', startTime: 13, status: 'COMPLETED', serviceName: 'Haircut', price: 35 },
-        { id: 'b2', date: '2024-06-20', startTime: 15, status: 'SCHEDULED', serviceName: 'Facial', price: 50 }
-      ]
-    },
-    {
-      id: '3',
-      name: 'Charlie Brown',
-      email: 'charlie@example.com',
-      phone: '555-9012',
-      notes: 'Allergic to certain hair products.',
-      appointmentCount: 8,
-      totalSpent: 320.00,
-      lastAppointment: '2024-05-20',
-      isVip: false,
-      appointments: [
-        { id: 'c1', date: '2024-05-20', startTime: 11, status: 'COMPLETED', serviceName: 'Haircut', price: 35 },
-        { id: 'c2', date: '2024-03-15', startTime: 14, status: 'COMPLETED', serviceName: 'Massage', price: 80 }
-      ]
-    },
-    {
-      id: '4',
-      name: 'Diana Prince',
-      email: 'diana@example.com',
-      phone: '555-3456',
-      appointmentCount: 15,
-      totalSpent: 875.50,
-      lastAppointment: '2024-05-25',
-      isVip: true,
-      appointments: [
-        { id: 'd1', date: '2024-05-25', startTime: 10, status: 'COMPLETED', serviceName: 'Massage', price: 80 },
-        { id: 'd2', date: '2024-04-10', startTime: 9, status: 'COMPLETED', serviceName: 'Facial', price: 50 },
-        { id: 'd3', date: '2024-06-05', startTime: 15, status: 'SCHEDULED', serviceName: 'Manicure', price: 25 }
-      ]
-    },
-    {
-      id: '5',
-      name: 'Edward Nygma',
-      email: 'edward@example.com',
-      phone: '555-7890',
-      notes: 'Prefers late afternoon appointments.',
-      appointmentCount: 3,
-      totalSpent: 120.00,
-      lastAppointment: '2024-05-10',
-      isVip: false,
-      appointments: [
-        { id: 'e1', date: '2024-05-10', startTime: 16, status: 'COMPLETED', serviceName: 'Haircut', price: 35 }
-      ]
-    }
-  ];
+  const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const fetchClients = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        setError(null);
+        // Get clients from API
+        const response = await getClients();
+        console.log('Client response raw:', response);
         
-        // In a real app, fetch from API
-        // const response = await api.get('/clients');
-        
-        // Simulate API delay and use mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setClients(mockClients);
-        setFilteredClients(mockClients);
-        setLoading(false);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load clients');
+        if (response.data && response.data.length > 0) {
+          // Add additional debugging
+          console.log('Client data before processing:', response.data);
+          
+          // Transform clients to add frontend-specific fields if needed
+          const clientsWithExtras = response.data.map(client => {
+            console.log('Processing client:', client);
+            return {
+              ...client,
+              // Ensure all required fields are present
+              id: client.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
+              name: client.name || 'Unknown',
+              email: client.email || '',
+              phone: client.phone || '',
+              notes: Array.isArray(client.notes) ? client.notes : (client.notes ? [client.notes] : []),
+              // Add frontend-specific fields
+              totalSpent: 0, // This would come from the API in a real implementation
+              isVip: client.appointmentCount ? client.appointmentCount > 5 : false, // Simple VIP rule
+              lastAppointment: undefined // Would come from API
+            };
+          });
+          
+          console.log('Processed clients:', clientsWithExtras);
+          setClients(clientsWithExtras);
+          setFilteredClients(clientsWithExtras);
+        } else {
+          console.warn('No clients returned from API:', response);
+          setClients([]);
+          setFilteredClients([]);
+          
+          // Show a message if there's an error
+          if (response.error) {
+            setError(`Failed to load clients: ${response.error}`);
+          } else if (response.data && response.data.length === 0) {
+            // This is not an error, just no clients yet
+            console.log('No clients found in the system');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching clients:', err);
+        setError('Failed to load clients. Please try again later.');
+      } finally {
         setLoading(false);
       }
     };
@@ -226,7 +176,7 @@ export default function Clients() {
       results = results.filter(client => 
         client.name.toLowerCase().includes(lowerCaseQuery) || 
         client.email.toLowerCase().includes(lowerCaseQuery) || 
-        client.phone.includes(searchQuery)
+        (client.phone?.includes(searchQuery) || false)
       );
     }
     
@@ -255,57 +205,132 @@ export default function Clients() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedClient) return;
-    
-    try {
-      // In a real app, delete via API
-      // await api.delete(`/clients/${selectedClient.id}`);
-      
-      // Update local state
-      setClients(prevClients => prevClients.filter(client => client.id !== selectedClient.id));
-      setDeleteConfirmOpen(false);
-      setSelectedClient(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete client');
+    if (selectedClient) {
+      let submitting = true;
+      try {
+        const result: { success: boolean, error?: string } = await deleteClient(selectedClient.id);
+        
+        if (result.success) {
+          // Remove client from the list
+          setClients(prevClients => prevClients.filter(c => c.id !== selectedClient.id));
+          setFilteredClients(prevClients => prevClients.filter(c => c.id !== selectedClient.id));
+          setDeleteConfirmOpen(false);
+          setSelectedClient(null);
+          setAlertMessage({ type: 'success', text: 'Client deleted successfully!' });
+        } else {
+          throw new Error(result.error || 'Failed to delete client');
+        }
+      } catch (err) {
+        console.error('Error deleting client:', err);
+        setAlertMessage({ 
+          type: 'error', 
+          text: err instanceof Error ? err.message : 'Failed to delete client' 
+        });
+      } finally {
+        submitting = false;
+      }
     }
   };
 
-  const handleSubmit = async (values: any, { setSubmitting }: any) => {
+  const handleSubmit = async (values: any, { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }) => {
     try {
-      if (dialogType === 'create') {
-        // In a real app, create via API
-        // const response = await api.post('/clients', values);
-        
-        // Create a new client with mock data
-        const newClient: Client = {
-          id: `new-${Date.now()}`,
+      let result: { 
+        data: Client | null; 
+        error?: string;
+        success?: boolean;
+      };
+      
+      // Ensure notes is an array of strings
+      const notesArray = values.notes ? 
+        (Array.isArray(values.notes) ? values.notes : [values.notes]) : 
+        [];
+      
+      if (dialogType === 'edit' && selectedClient) {
+        // Prepare update data
+        const updateData: UpdateClientData = {
           name: values.name,
           email: values.email,
           phone: values.phone,
-          notes: values.notes,
-          appointmentCount: 0,
-          totalSpent: 0,
-          isVip: false
+          notes: notesArray // Use the array of notes
         };
         
-        setClients(prevClients => [...prevClients, newClient]);
-      } else if (dialogType === 'edit' && selectedClient) {
-        // In a real app, update via API
-        // const response = await api.put(`/clients/${selectedClient.id}`, values);
+        // Update client
+        result = await updateClient(selectedClient.id, updateData);
         
-        // Update local state
-        setClients(prevClients => 
-          prevClients.map(client => 
-            client.id === selectedClient.id 
-              ? { ...client, ...values }
-              : client
-          )
-        );
+        if (result.data) {
+          // Update the client in the list
+          setClients(prevClients => 
+            prevClients.map(c => c.id === selectedClient.id ? 
+              { 
+                ...c, 
+                ...result.data as Client,
+                // Preserve frontend-specific fields
+                totalSpent: c.totalSpent,
+                isVip: c.isVip,
+                lastAppointment: c.lastAppointment,
+                appointments: c.appointments 
+              } : c)
+          );
+          setFilteredClients(prevClients => 
+            prevClients.map(c => c.id === selectedClient.id ? 
+              { 
+                ...c, 
+                ...result.data as Client,
+                // Preserve frontend-specific fields
+                totalSpent: c.totalSpent,
+                isVip: c.isVip,
+                lastAppointment: c.lastAppointment,
+                appointments: c.appointments 
+              } : c)
+          );
+          setAlertMessage({ type: 'success', text: 'Client updated successfully!' });
+        } else {
+          throw new Error(result.error || 'Failed to update client');
+        }
+      } else {
+        // Prepare create data
+        const createData: CreateClientData = {
+          name: values.name,
+          email: values.email,
+          phone: values.phone,
+          notes: notesArray // Use the array of notes
+        };
+        
+        // Create new client
+        result = await createClient(createData);
+        
+        if (result.data) {
+          // Add the new client to the list
+          const newClient = {
+            ...result.data,
+            totalSpent: 0,
+            isVip: false,
+            appointmentCount: 0
+          } as Client;
+          
+          setClients(prevClients => [...prevClients, newClient]);
+          setFilteredClients(prevClients => [...prevClients, newClient]);
+          setAlertMessage({ type: 'success', text: 'Client created successfully!' });
+        } else {
+          throw new Error(result.error || 'Failed to create client');
+        }
       }
       
+      // Close dialog
       handleCloseDialog();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save client');
+    } catch (err) {
+      console.error('Error saving client:', err);
+      
+      // Add special handling for the "Notes must be an array of strings" error
+      let errorMessage = err instanceof Error ? err.message : 'Failed to save client';
+      if (typeof errorMessage === 'string' && errorMessage.includes('Notes must be an array of strings')) {
+        errorMessage = 'Notes must be provided as an array of strings.';
+      }
+      
+      setAlertMessage({ 
+        type: 'error', 
+        text: errorMessage
+      });
     } finally {
       setSubmitting(false);
     }
@@ -362,7 +387,7 @@ export default function Clients() {
       name: '',
       email: '',
       phone: '',
-      notes: ''
+      notes: []
     };
     
     return (
@@ -371,7 +396,7 @@ export default function Clients() {
         validationSchema={ClientSchema}
         onSubmit={handleSubmit}
       >
-        {({ isSubmitting, errors, touched }) => (
+        {({ isSubmitting, errors, touched, values, setFieldValue }) => (
           <Form>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
               <Field
@@ -412,15 +437,24 @@ export default function Clients() {
                   ),
                 }}
               />
-              <Field
-                as={TextField}
+              <TextField
                 name="notes"
-                label="Notes"
+                label="Notes (one per line)"
                 multiline
                 rows={4}
                 fullWidth
+                value={Array.isArray(values.notes) ? values.notes.join('\n') : ''}
+                onChange={(e) => {
+                  // Split by newlines and filter empty lines
+                  const notesArray = e.target.value
+                    .split('\n')
+                    .filter(note => note.trim() !== '');
+                  setFieldValue('notes', notesArray);
+                }}
                 error={touched.notes && Boolean(errors.notes)}
-                helperText={touched.notes && errors.notes}
+                helperText={touched.notes && errors.notes ? 
+                  (errors.notes as string) : 
+                  "Enter each note on a separate line"}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -461,164 +495,183 @@ export default function Clients() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredClients
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((client) => (
-                <React.Fragment key={client.id}>
-                  <TableRow
-                    hover
-                    sx={{
-                      '&:last-child td, &:last-child th': { border: 0 },
-                      backgroundColor: client.isVip ? 'rgba(255, 215, 0, 0.1)' : 'inherit'
-                    }}
-                  >
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                          {client.name}
-                        </Typography>
-                        {client.isVip && (
-                          <Tooltip title="VIP Client">
-                            <StarIcon
-                              fontSize="small"
-                              color="warning"
-                              sx={{ ml: 1 }}
-                            />
-                          </Tooltip>
-                        )}
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        {client.email}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {client.phone}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{formatDate(client.lastAppointment)}</TableCell>
-                    <TableCell align="center">{client.appointmentCount}</TableCell>
-                    <TableCell align="right">${client.totalSpent.toFixed(2)}</TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                        <Tooltip title="View Appointments">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleExpandClient(client.id)}
-                          >
-                            {expandedClientId === client.id ? (
-                              <ExpandLessIcon fontSize="small" />
-                            ) : (
-                              <ExpandMoreIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit Client">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenDialog('edit', client)}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Client">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleDeleteClick(client)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      sx={{ p: 0, borderBottom: expandedClientId === client.id ? undefined : 'none' }}
+            {filteredClients && filteredClients.length > 0 ? (
+              filteredClients
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((client) => (
+                  <React.Fragment key={client.id || `client-${Math.random()}`}>
+                    <TableRow
+                      hover
+                      sx={{
+                        '&:last-child td, &:last-child th': { border: 0 },
+                        backgroundColor: client.isVip ? 'rgba(255, 215, 0, 0.1)' : 'inherit'
+                      }}
                     >
-                      <Collapse in={expandedClientId === client.id} timeout="auto" unmountOnExit>
-                        <Box sx={{ p: 2, backgroundColor: 'action.hover' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="subtitle2" gutterBottom component="div">
-                              Appointment History
-                            </Typography>
-                            <FormControlLabel
-                              control={
-                                <Switch
-                                  size="small"
-                                  checked={client.isVip}
-                                  onChange={() => handleToggleVipStatus(client)}
-                                />
-                              }
-                              label={<Typography variant="body2">VIP Status</Typography>}
-                            />
-                          </Box>
-                          {client.appointments && client.appointments.length > 0 ? (
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Date & Time</TableCell>
-                                  <TableCell>Service</TableCell>
-                                  <TableCell>Price</TableCell>
-                                  <TableCell align="right">Status</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {client.appointments.map((appointment) => (
-                                  <TableRow key={appointment.id}>
-                                    <TableCell>
-                                      {formatDateTime(appointment.date, appointment.startTime)}
-                                    </TableCell>
-                                    <TableCell>{appointment.serviceName}</TableCell>
-                                    <TableCell>${appointment.price.toFixed(2)}</TableCell>
-                                    <TableCell align="right">
-                                      <Chip
-                                        size="small"
-                                        label={appointment.status}
-                                        color={
-                                          appointment.status === 'COMPLETED' ? 'success' :
-                                          appointment.status === 'SCHEDULED' ? 'primary' :
-                                          'error'
-                                        }
-                                      />
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              No appointment history available.
-                            </Typography>
-                          )}
-                          {client.notes && (
-                            <Box sx={{ mt: 2 }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                Notes
-                              </Typography>
-                              <Paper 
-                                variant="outlined" 
-                                sx={{ p: 1.5, backgroundColor: 'background.paper' }}
-                              >
-                                <Typography variant="body2">{client.notes}</Typography>
-                              </Paper>
-                            </Box>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                            {client.name || 'Unknown'}
+                          </Typography>
+                          {client.isVip && (
+                            <Tooltip title="VIP Client">
+                              <StarIcon
+                                fontSize="small"
+                                sx={{ color: 'gold', ml: 1 }}
+                              />
+                            </Tooltip>
                           )}
                         </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))}
-            {filteredClients.length === 0 && (
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" display="block">
+                          {client.email || 'No email'}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          {client.phone || 'No phone'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{formatDate(client.lastAppointment)}</TableCell>
+                      <TableCell align="center">{client.appointmentCount}</TableCell>
+                      <TableCell align="right">${client.totalSpent?.toFixed(2) || 'N/A'}</TableCell>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <Tooltip title="View Appointments">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleExpandClient(client.id)}
+                            >
+                              {expandedClientId === client.id ? (
+                                <ExpandLessIcon fontSize="small" />
+                              ) : (
+                                <ExpandMoreIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit Client">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => handleOpenDialog('edit', client)}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete Client">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteClick(client)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        sx={{ p: 0, borderBottom: expandedClientId === client.id ? undefined : 'none' }}
+                      >
+                        <Collapse in={expandedClientId === client.id} timeout="auto" unmountOnExit>
+                          <Box sx={{ p: 2, backgroundColor: 'action.hover' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                              <Typography variant="subtitle2" gutterBottom component="div">
+                                Appointment History
+                              </Typography>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    size="small"
+                                    checked={client.isVip}
+                                    onChange={() => handleToggleVipStatus(client)}
+                                  />
+                                }
+                                label={<Typography variant="body2">VIP Status</Typography>}
+                              />
+                            </Box>
+                            {client.appointments && client.appointments.length > 0 ? (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Date & Time</TableCell>
+                                    <TableCell>Service</TableCell>
+                                    <TableCell>Price</TableCell>
+                                    <TableCell align="right">Status</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {client.appointments.map((appointment) => (
+                                    <TableRow key={appointment.id}>
+                                      <TableCell>
+                                        {formatDateTime(appointment.date, appointment.startTime)}
+                                      </TableCell>
+                                      <TableCell>{appointment.serviceName}</TableCell>
+                                      <TableCell>${appointment.price.toFixed(2)}</TableCell>
+                                      <TableCell align="right">
+                                        <Chip
+                                          size="small"
+                                          label={appointment.status}
+                                          color={
+                                            appointment.status === 'COMPLETED' ? 'success' :
+                                            appointment.status === 'SCHEDULED' ? 'primary' :
+                                            'error'
+                                          }
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                No appointment history available.
+                              </Typography>
+                            )}
+                            {client.notes && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Notes
+                                </Typography>
+                                <Paper 
+                                  variant="outlined" 
+                                  sx={{ p: 1.5, backgroundColor: 'background.paper' }}
+                                >
+                                  <Typography variant="body2">{client.notes.join('\n')}</Typography>
+                                </Paper>
+                              </Box>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))
+            ) : (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    No clients found matching your search.
-                  </Typography>
+                  <Box sx={{ textAlign: 'center', py: 3 }}>
+                    <PersonOffIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" gutterBottom>
+                      No Clients Found
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {error ? 
+                        `Error: ${error}` : 
+                        (loading ? 
+                          'Loading clients...' : 
+                          'No clients match your search criteria or there are no clients in the system yet.'
+                        )
+                      }
+                    </Typography>
+                    <Button 
+                      variant="contained" 
+                      startIcon={<PersonAddIcon />}
+                      onClick={() => handleOpenDialog('create', null)}
+                    >
+                      Add Your First Client
+                    </Button>
+                  </Box>
                 </TableCell>
               </TableRow>
             )}
@@ -708,7 +761,7 @@ export default function Clients() {
                         Total Spent
                       </Typography>
                       <Typography variant="body2" fontWeight="medium">
-                        ${client.totalSpent.toFixed(2)}
+                        ${client.totalSpent?.toFixed(2) || 'N/A'}
                       </Typography>
                     </Box>
                   </Box>
@@ -730,7 +783,7 @@ export default function Clients() {
                           <NotesIcon fontSize="small" sx={{ mr: 0.5 }} /> Notes
                         </Typography>
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          {client.notes}
+                          {client.notes.join('\n')}
                         </Typography>
                       </Box>
                     </>

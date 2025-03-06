@@ -39,105 +39,19 @@ import {
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import MainLayout from '../components/layout/MainLayout';
-import api from '../api/apiClient';
+import { 
+  getServices, 
+  createService, 
+  updateService, 
+  deleteService, 
+  toggleServiceAvailability, 
+  Service,
+  CreateServiceData,
+  UpdateServiceData,
+  ServiceAvailabilityData
+} from '../api/serviceApi';
 
-// Mock data for services
-const mockServices = [
-  {
-    id: '1',
-    name: 'Haircut',
-    description: 'Professional haircut service',
-    duration: 30,
-    price: 35.00,
-    isAvailable: true,
-    availableDays: [1, 2, 3, 4, 5],
-    availableTimeStart: 9,
-    availableTimeEnd: 17,
-    bookingCount: 45,
-    revenue: 1575.00
-  },
-  {
-    id: '2',
-    name: 'Manicure',
-    description: 'Professional nail care for hands',
-    duration: 45,
-    price: 25.00,
-    isAvailable: true,
-    availableDays: [1, 2, 3, 4, 5, 6],
-    availableTimeStart: 10,
-    availableTimeEnd: 18,
-    bookingCount: 32,
-    revenue: 800.00
-  },
-  {
-    id: '3',
-    name: 'Facial',
-    description: 'Rejuvenating facial treatment',
-    duration: 60,
-    price: 50.00,
-    isAvailable: true,
-    availableDays: [1, 3, 5],
-    availableTimeStart: 9,
-    availableTimeEnd: 16,
-    bookingCount: 18,
-    revenue: 900.00
-  },
-  {
-    id: '4',
-    name: 'Massage',
-    description: 'Relaxing full body massage',
-    duration: 90,
-    price: 80.00,
-    isAvailable: false,
-    availableDays: [2, 4, 6],
-    availableTimeStart: 10,
-    availableTimeEnd: 17,
-    bookingCount: 24,
-    revenue: 1920.00
-  }
-];
-
-// Validation schema for service form
-const ServiceSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, 'Too Short!')
-    .max(50, 'Too Long!')
-    .required('Name is required'),
-  description: Yup.string()
-    .min(5, 'Too Short!')
-    .max(200, 'Too Long!')
-    .required('Description is required'),
-  duration: Yup.number()
-    .min(5, 'Minimum duration is 5 minutes')
-    .max(240, 'Maximum duration is 4 hours')
-    .required('Duration is required'),
-  price: Yup.number()
-    .min(0, 'Price cannot be negative')
-    .required('Price is required'),
-  isAvailable: Yup.boolean(),
-  availableDays: Yup.array()
-    .of(Yup.number())
-    .min(1, 'Select at least one day')
-    .required('Available days are required'),
-  availableTimeStart: Yup.number()
-    .min(0, 'Invalid time')
-    .max(23, 'Invalid time')
-    .required('Start time is required'),
-  availableTimeEnd: Yup.number()
-    .min(0, 'Invalid time')
-    .max(24, 'Invalid time')
-    .required('End time is required')
-    .test(
-      'is-greater',
-      'End time must be after start time',
-      function(value) {
-        const { availableTimeStart } = this.parent;
-        return value > availableTimeStart;
-      }
-    )
-});
-
-// Days of the week
+// Define days of the week
 const daysOfWeek = [
   { value: 0, label: 'Sunday' },
   { value: 1, label: 'Monday' },
@@ -148,137 +62,231 @@ const daysOfWeek = [
   { value: 6, label: 'Saturday' }
 ];
 
-// Time options for select
-const timeOptions = Array.from({ length: 25 }, (_, i) => {
-  const hour = i;
-  const amPm = hour < 12 ? 'AM' : 'PM';
-  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-  return {
-    value: hour,
-    label: `${displayHour}:00 ${amPm}`
-  };
+// Define hours for the time picker
+const hours = Array.from({ length: 24 }, (_, i) => ({
+  value: i * 100, // Format as 24-hour (e.g. 900 for 9:00 AM)
+  label: i < 12 
+    ? `${i === 0 ? 12 : i}:00 AM` 
+    : `${i === 12 ? 12 : i - 12}:00 PM`
+}));
+
+// Validation schema for service form
+const ServiceSchema = Yup.object().shape({
+  name: Yup.string().required('Name is required'),
+  duration: Yup.number()
+    .required('Duration is required')
+    .min(1, 'Duration must be at least 1 minute')
+    .max(480, 'Duration cannot exceed 8 hours'),
+  price: Yup.number()
+    .required('Price is required')
+    .min(0, 'Price cannot be negative'),
+  isAvailable: Yup.boolean(),
+  availableDays: Yup.array()
+    .of(Yup.number().min(0).max(6))
+    .min(1, 'Select at least one day')
+    .required('Available days are required'),
+  availableTimeStart: Yup.number()
+    .required('Start time is required'),
+  availableTimeEnd: Yup.number()
+    .required('End time is required')
+    .test(
+      'is-greater-than-start',
+      'End time must be after start time',
+      function(value) {
+        const { availableTimeStart } = this.parent;
+        return value > availableTimeStart;
+      }
+    )
 });
 
 export default function Services() {
-  const [services, setServices] = useState(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentService, setCurrentService] = useState<any>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
-
+  const [submitting, setSubmitting] = useState(false);
+  
   useEffect(() => {
     const fetchServices = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
+        const response = await getServices();
+        if (response.data) {
+          setServices(response.data);
+        } else {
+          setServices([]);
+        }
         setError(null);
-        
-        // In a real app, we would fetch data from the API
-        // const response = await api.get('/services');
-        
-        // For now, simulate API delay and use mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // setServices(response.data);
-        setLoading(false);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load services');
+      } catch (err) {
+        console.error('Error fetching services:', err);
+        setError('Failed to load services. Please try again later.');
+      } finally {
         setLoading(false);
       }
     };
-
+    
     fetchServices();
   }, []);
-
-  const handleOpenDialog = (service: any = null) => {
-    setCurrentService(service);
+  
+  const handleOpenDialog = (service: Service | null = null) => {
+    setEditingService(service);
+    setIsEditMode(!!service);
     setOpenDialog(true);
   };
-
+  
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setCurrentService(null);
+    setEditingService(null);
+    setIsEditMode(false);
   };
-
+  
   const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
-      // In a real app, we would call the API
-      if (currentService) {
+      setSubmitting(true);
+      let result: { data: Service | null; error?: string } | undefined;
+      
+      if (isEditMode && editingService) {
         // Update existing service
-        // await api.put(`/services/${currentService.id}`, values);
+        const updateData: UpdateServiceData = {
+          name: values.name,
+          duration: values.duration,
+          price: values.price,
+          isAvailable: values.isAvailable,
+          availableDays: values.availableDays,
+          availableTimeStart: values.availableTimeStart,
+          availableTimeEnd: values.availableTimeEnd
+        };
         
-        // Update local state
-        setServices(services.map(service => 
-          service.id === currentService.id ? { ...service, ...values } : service
-        ));
+        result = await updateService(editingService.id, updateData);
+        
+        if (result && result.data) {
+          // Update service in the list
+          setServices(prevServices => 
+            prevServices.map(service => 
+              service.id === editingService.id ? result!.data as Service : service
+            )
+          );
+          setSuccess('Service updated successfully!');
+          handleCloseDialog();
+        } else {
+          throw new Error(result?.error || 'Failed to update service');
+        }
       } else {
         // Create new service
-        // const response = await api.post('/services', values);
-        
-        // Add to local state with mock ID
-        const newService = {
-          ...values,
-          id: `${services.length + 1}`,
-          bookingCount: 0,
-          revenue: 0
+        const createData: CreateServiceData = {
+          name: values.name,
+          duration: values.duration,
+          price: values.price,
+          isAvailable: values.isAvailable,
+          availableDays: values.availableDays,
+          availableTimeStart: values.availableTimeStart,
+          availableTimeEnd: values.availableTimeEnd
         };
-        setServices([...services, newService]);
+        
+        result = await createService(createData);
+        
+        if (result && result.data) {
+          // Add new service to the list
+          setServices(prevServices => [...prevServices, result!.data as Service]);
+          setSuccess('Service created successfully!');
+          handleCloseDialog();
+        } else {
+          // Check if the error message contains information about description field
+          if (result?.error && result.error.includes('description')) {
+            setError('The backend does not support the description field. Please contact your administrator.');
+          } else {
+            throw new Error(result?.error || 'Failed to create service');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error saving service:', err);
+      let errorMessage = err instanceof Error ? err.message : 'Failed to save service';
+      
+      // Check for specific backend error patterns
+      if (typeof errorMessage === 'string' && 
+          (errorMessage.includes('description') || 
+           errorMessage.includes('Unknown argument'))) {
+        errorMessage = 'The service schema in the backend does not match the frontend. The description field is not supported.';
+      } else if (errorMessage.includes('Notes must be an array of strings')) {
+        errorMessage = 'Notes must be provided as an array of strings. Please enter notes in the correct format.';
       }
       
-      handleCloseDialog();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save service');
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
   };
-
+  
   const handleToggleAvailability = async (id: string, isAvailable: boolean) => {
     try {
-      // In a real app, we would call the API
-      // await api.put(`/services/${id}/availability`, { isAvailable: !isAvailable });
+      const result = await toggleServiceAvailability(id, isAvailable);
       
-      // Update local state
-      setServices(services.map(service => 
-        service.id === id ? { ...service, isAvailable: !isAvailable } : service
-      ));
-    } catch (err: any) {
-      setError(err.message || 'Failed to update service availability');
+      if (result.data) {
+        // Update service availability in the list
+        setServices(prevServices => 
+          prevServices.map(service => 
+            service.id === id ? { ...service, isAvailable } : service
+          )
+        );
+        setSuccess(`Service ${isAvailable ? 'enabled' : 'disabled'} successfully!`);
+      } else {
+        throw new Error(result.error || 'Failed to toggle service availability');
+      }
+    } catch (err) {
+      console.error('Error toggling service availability:', err);
+      setError(err instanceof Error ? err.message : 'Failed to toggle service availability');
     }
   };
-
+  
   const handleDeleteClick = (id: string) => {
     setServiceToDelete(id);
-    setDeleteConfirmOpen(true);
+    setDeleteDialogOpen(true);
   };
-
+  
   const handleDeleteConfirm = async () => {
     if (!serviceToDelete) return;
     
+    setSubmitting(true);
     try {
-      // In a real app, we would call the API
-      // await api.delete(`/services/${serviceToDelete}`);
+      const result = await deleteService(serviceToDelete);
       
-      // Update local state
-      setServices(services.filter(service => service.id !== serviceToDelete));
-      setDeleteConfirmOpen(false);
+      if (result.success) {
+        // Remove service from the list
+        setServices(prevServices => 
+          prevServices.filter(service => service.id !== serviceToDelete)
+        );
+        setSuccess('Service deleted successfully!');
+      } else {
+        throw new Error(result.error || 'Failed to delete service');
+      }
+    } catch (err) {
+      console.error('Error deleting service:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete service');
+    } finally {
+      setSubmitting(false);
+      setDeleteDialogOpen(false);
       setServiceToDelete(null);
-    } catch (err: any) {
-      setError(err.message || 'Failed to delete service');
     }
   };
-
-  const formatTime = (hour: number) => {
-    const amPm = hour < 12 ? 'AM' : 'PM';
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    return `${displayHour}:00 ${amPm}`;
+  
+  const formatTime = (timeValue: number) => {
+    const hours = Math.floor(timeValue / 100);
+    const minutes = timeValue % 100;
+    const period = hours < 12 ? 'AM' : 'PM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
-
+  
   const formatDays = (days: number[]) => {
     return days.map(day => daysOfWeek.find(d => d.value === day)?.label.substring(0, 3)).join(', ');
   };
-
+  
   return (
     <MainLayout>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
@@ -359,7 +367,7 @@ export default function Services() {
                       Bookings: {service.bookingCount}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Revenue: ${service.revenue.toFixed(2)}
+                      Revenue: ${service.revenue?.toFixed(2) || '0.00'}
                     </Typography>
                   </Box>
                 </CardContent>
@@ -388,7 +396,7 @@ export default function Services() {
                     control={
                       <Switch
                         checked={service.isAvailable}
-                        onChange={() => handleToggleAvailability(service.id, service.isAvailable)}
+                        onChange={(e) => handleToggleAvailability(service.id, e.target.checked)}
                         color="primary"
                         size="small"
                       />
@@ -405,19 +413,18 @@ export default function Services() {
       {/* Service Form Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {currentService ? 'Edit Service' : 'Add New Service'}
+          {editingService ? 'Edit Service' : 'Add New Service'}
         </DialogTitle>
         <Formik
           initialValues={
-            currentService || {
+            editingService || {
               name: '',
-              description: '',
               duration: 30,
               price: 0,
               isAvailable: true,
               availableDays: [1, 2, 3, 4, 5],
-              availableTimeStart: 9,
-              availableTimeEnd: 17
+              availableTimeStart: 900,
+              availableTimeEnd: 1700
             }
           }
           validationSchema={ServiceSchema}
@@ -435,18 +442,6 @@ export default function Services() {
                       label="Service Name"
                       error={touched.name && Boolean(errors.name)}
                       helperText={touched.name && errors.name}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="description"
-                      label="Description"
-                      multiline
-                      rows={3}
-                      error={touched.description && Boolean(errors.description)}
-                      helperText={touched.description && errors.description}
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -524,7 +519,7 @@ export default function Services() {
                         onChange={(e) => setFieldValue('availableTimeStart', e.target.value)}
                         label="Start Time"
                       >
-                        {timeOptions.slice(0, -1).map((time) => (
+                        {hours.map((time) => (
                           <MenuItem key={time.value} value={time.value}>
                             {time.label}
                           </MenuItem>
@@ -547,7 +542,7 @@ export default function Services() {
                         onChange={(e) => setFieldValue('availableTimeEnd', e.target.value)}
                         label="End Time"
                       >
-                        {timeOptions.slice(1).map((time) => (
+                        {hours.map((time) => (
                           <MenuItem key={time.value} value={time.value}>
                             {time.label}
                           </MenuItem>
@@ -588,7 +583,7 @@ export default function Services() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>
@@ -596,7 +591,7 @@ export default function Services() {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleDeleteConfirm} color="error">
             Delete
           </Button>

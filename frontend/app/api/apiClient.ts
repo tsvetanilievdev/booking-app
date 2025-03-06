@@ -8,6 +8,10 @@ interface RequestOptions extends RequestInit {
 }
 
 class ApiClient {
+  private maxRetries = 2; // Maximum number of retries for failed requests
+  private retryDelay = 1000; // Delay between retries in milliseconds
+  private defaultTimeout = 10000; // Default timeout for requests in milliseconds
+  
   private getAuthToken(): string | null {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('authToken');
@@ -35,10 +39,47 @@ class ApiClient {
   }
 
   /**
+   * Makes a request with retry logic for failed requests
+   */
+  private async requestWithRetry<T>(
+    url: string,
+    options: RequestInit,
+    timeout: number,
+    retries: number = 0
+  ): Promise<T> {
+    try {
+      const response = await fetchWithTimeout<T>(
+        url, 
+        options,
+        timeout
+      );
+      return response;
+    } catch (error: any) {
+      // Don't retry if we've reached the maximum number of retries
+      // or if it's a client error (4xx)
+      if (
+        retries >= this.maxRetries || 
+        (error.status && error.status >= 400 && error.status < 500)
+      ) {
+        throw error;
+      }
+      
+      // Log the retry attempt
+      console.warn(`Request to ${url} failed, retrying (${retries + 1}/${this.maxRetries})...`);
+      
+      // Wait for the retry delay
+      await new Promise(resolve => setTimeout(resolve, this.retryDelay));
+      
+      // Retry the request
+      return this.requestWithRetry<T>(url, options, timeout, retries + 1);
+    }
+  }
+
+  /**
    * Makes a GET request to the API
    */
   async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
     
     if (requireAuth) {
       const token = this.getAuthToken();
@@ -57,7 +98,7 @@ class ApiClient {
     console.log(`Making GET request to ${url}`);
     
     try {
-      const response = await fetchWithTimeout<T>(
+      return await this.requestWithRetry<T>(
         url, 
         {
           ...restOptions,
@@ -66,7 +107,6 @@ class ApiClient {
         },
         timeout
       );
-      return response;
     } catch (error) {
       console.error(`GET request to ${url} failed:`, error);
       throw error;
@@ -77,7 +117,7 @@ class ApiClient {
    * Makes a POST request to the API
    */
   async post<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
     
     if (requireAuth) {
       const token = this.getAuthToken();
@@ -93,20 +133,22 @@ class ApiClient {
     }
 
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making POST request to ${url}`, data);
+    console.log(`Making POST request to ${url} with data:`, JSON.stringify(data, null, 2));
     
     try {
-      const response = await fetchWithTimeout<T>(
+      const payload = JSON.stringify(data);
+      console.log(`POST payload (${payload.length} bytes)`, payload);
+      
+      return await this.requestWithRetry<T>(
         url, 
         {
           ...restOptions,
           method: 'POST',
           headers: this.getHeaders(restOptions),
-          body: JSON.stringify(data),
+          body: payload,
         },
         timeout
       );
-      return response;
     } catch (error) {
       console.error(`POST request to ${url} failed:`, error);
       throw error;
@@ -117,7 +159,7 @@ class ApiClient {
    * Makes a PUT request to the API
    */
   async put<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
     
     if (requireAuth) {
       const token = this.getAuthToken();
@@ -136,17 +178,19 @@ class ApiClient {
     console.log(`Making PUT request to ${url}`, data);
     
     try {
-      const response = await fetchWithTimeout<T>(
+      const payload = JSON.stringify(data);
+      console.log(`PUT payload for ${url}:`, payload);
+      
+      return await this.requestWithRetry<T>(
         url, 
         {
           ...restOptions,
           method: 'PUT',
           headers: this.getHeaders(restOptions),
-          body: JSON.stringify(data),
+          body: payload,
         },
         timeout
       );
-      return response;
     } catch (error) {
       console.error(`PUT request to ${url} failed:`, error);
       throw error;
@@ -157,7 +201,7 @@ class ApiClient {
    * Makes a DELETE request to the API
    */
   async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
     
     if (requireAuth) {
       const token = this.getAuthToken();
@@ -176,7 +220,7 @@ class ApiClient {
     console.log(`Making DELETE request to ${url}`);
     
     try {
-      const response = await fetchWithTimeout<T>(
+      return await this.requestWithRetry<T>(
         url, 
         {
           ...restOptions,
@@ -185,7 +229,6 @@ class ApiClient {
         },
         timeout
       );
-      return response;
     } catch (error) {
       console.error(`DELETE request to ${url} failed:`, error);
       throw error;

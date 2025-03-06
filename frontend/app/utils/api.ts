@@ -25,6 +25,26 @@ export async function fetchWithErrorHandling<T>(
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
           console.error('API Error Response:', errorData);
+          
+          // Enhance error data for ZodError or validation errors
+          if (errorData.error && errorData.error.type === 'ZodError') {
+            console.warn('ZodError detected in response:', errorData.error);
+            
+            // Parse the validation issues if possible
+            let validationMessages = [];
+            if (errorData.error.details && Array.isArray(errorData.error.details.issues)) {
+              validationMessages = errorData.error.details.issues.map((issue: any) => {
+                return `Field "${issue.path.join('.')}" ${issue.message}`;
+              });
+            }
+            
+            // Add a more user-friendly message
+            if (validationMessages.length > 0) {
+              errorData.userMessage = `Validation errors: ${validationMessages.join('; ')}`;
+            } else {
+              errorData.userMessage = 'Data validation failed. Please check your input.';
+            }
+          }
         } else {
           errorData = await response.text();
           console.error('API Error Response (text):', errorData);
@@ -36,7 +56,7 @@ export async function fetchWithErrorHandling<T>(
       
       // Create a custom error with status and data
       const error = new Error(
-        errorData.message || `Request failed with status ${response.status}`
+        errorData.userMessage || errorData.message || `Request failed with status ${response.status}`
       ) as Error & { status?: number; data?: any };
       
       error.status = response.status;
