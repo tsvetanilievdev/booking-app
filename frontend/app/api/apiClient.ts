@@ -1,108 +1,205 @@
-import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import Cookies from 'js-cookie';
+import { fetchWithErrorHandling, fetchWithTimeout, createAbortController } from '../utils/api';
 
-// Create base API configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// Create an axios instance
-const apiClient = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000, // 10 seconds
-});
-
-// Request interceptor to add auth token
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = Cookies.get('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Type for API error responses
-interface ErrorResponse {
-  message?: string;
-  [key: string]: any;
+interface RequestOptions extends RequestInit {
+  requireAuth?: boolean;
+  timeout?: number;
 }
 
-// Response interceptor to handle token refresh and errors
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  async (error: AxiosError<ErrorResponse>) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+class ApiClient {
+  private getAuthToken(): string | null {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      console.log('Getting auth token from localStorage:', token ? `${token.substring(0, 15)}...` : 'null');
+      return token;
+    }
+    return null;
+  }
+
+  private getHeaders(options?: RequestInit): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options?.headers as Record<string, string> || {}),
+    };
+
+    const token = this.getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('Added Authorization header with token');
+    } else {
+      console.log('No token available for Authorization header');
+    }
+
+    return headers;
+  }
+
+  /**
+   * Makes a GET request to the API
+   */
+  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
     
-    // If the error is due to an unauthorized request (token expired)
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // Only attempt refresh once
-      originalRequest._retry = true;
-      
-      try {
-        // Attempt to refresh the token
-        const token = Cookies.get('refreshToken');
-        if (token) {
-          const response = await axios.post(`${API_URL}/auth/refresh-token`, { token });
-          const { token: newToken } = response.data;
-          
-          // Update the cookie
-          Cookies.set('token', newToken, { expires: 7 });
-          
-          // Retry the original request with the new token
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          }
-          return apiClient(originalRequest);
-        }
-      } catch (refreshError) {
-        // If refresh fails, redirect to login
+    if (requireAuth) {
+      const token = this.getAuthToken();
+      if (!token) {
+        console.error('Authentication required but no token found');
         if (typeof window !== 'undefined') {
+          // Force redirect to login if client-side
+          console.log('Redirecting to login page due to missing token');
           window.location.href = '/login';
         }
-        return Promise.reject(refreshError);
+        throw new Error('Authentication required');
       }
     }
-    
-    // Custom error handling
-    const customError = {
-      message: error.response?.data?.message || 'An unexpected error occurred',
-      status: error.response?.status,
-      data: error.response?.data,
-    };
-    
-    // Handle offline mode
-    if (!error.response) {
-      customError.message = 'Network error. Please check your connection.';
-    }
-    
-    return Promise.reject(customError);
-  }
-);
 
-export interface ApiResponse<T = any> {
-  status: string;
-  message?: string;
-  data?: T;
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making GET request to ${url}`);
+    
+    try {
+      const response = await fetchWithTimeout<T>(
+        url, 
+        {
+          ...restOptions,
+          method: 'GET',
+          headers: this.getHeaders(restOptions),
+        },
+        timeout
+      );
+      return response;
+    } catch (error) {
+      console.error(`GET request to ${url} failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Makes a POST request to the API
+   */
+  async post<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
+    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    
+    if (requireAuth) {
+      const token = this.getAuthToken();
+      if (!token) {
+        console.error('Authentication required but no token found');
+        if (typeof window !== 'undefined') {
+          // Force redirect to login if client-side
+          console.log('Redirecting to login page due to missing token');
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication required');
+      }
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making POST request to ${url}`, data);
+    
+    try {
+      const response = await fetchWithTimeout<T>(
+        url, 
+        {
+          ...restOptions,
+          method: 'POST',
+          headers: this.getHeaders(restOptions),
+          body: JSON.stringify(data),
+        },
+        timeout
+      );
+      return response;
+    } catch (error) {
+      console.error(`POST request to ${url} failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Makes a PUT request to the API
+   */
+  async put<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
+    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    
+    if (requireAuth) {
+      const token = this.getAuthToken();
+      if (!token) {
+        console.error('Authentication required but no token found');
+        if (typeof window !== 'undefined') {
+          // Force redirect to login if client-side
+          console.log('Redirecting to login page due to missing token');
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication required');
+      }
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making PUT request to ${url}`, data);
+    
+    try {
+      const response = await fetchWithTimeout<T>(
+        url, 
+        {
+          ...restOptions,
+          method: 'PUT',
+          headers: this.getHeaders(restOptions),
+          body: JSON.stringify(data),
+        },
+        timeout
+      );
+      return response;
+    } catch (error) {
+      console.error(`PUT request to ${url} failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Makes a DELETE request to the API
+   */
+  async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
+    const { requireAuth = true, timeout = 10000, ...restOptions } = options || {};
+    
+    if (requireAuth) {
+      const token = this.getAuthToken();
+      if (!token) {
+        console.error('Authentication required but no token found');
+        if (typeof window !== 'undefined') {
+          // Force redirect to login if client-side
+          console.log('Redirecting to login page due to missing token');
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication required');
+      }
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
+    console.log(`Making DELETE request to ${url}`);
+    
+    try {
+      const response = await fetchWithTimeout<T>(
+        url, 
+        {
+          ...restOptions,
+          method: 'DELETE',
+          headers: this.getHeaders(restOptions),
+        },
+        timeout
+      );
+      return response;
+    } catch (error) {
+      console.error(`DELETE request to ${url} failed:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Creates an abort controller for cancellable requests
+   */
+  createAbortController() {
+    return createAbortController();
+  }
 }
 
-const api = {
-  get: <T>(url: string, config?: AxiosRequestConfig) => 
-    apiClient.get<ApiResponse<T>>(url, config).then(response => response.data),
-  
-  post: <T>(url: string, data?: any, config?: AxiosRequestConfig) => 
-    apiClient.post<ApiResponse<T>>(url, data, config).then(response => response.data),
-  
-  put: <T>(url: string, data?: any, config?: AxiosRequestConfig) => 
-    apiClient.put<ApiResponse<T>>(url, data, config).then(response => response.data),
-  
-  delete: <T>(url: string, config?: AxiosRequestConfig) => 
-    apiClient.delete<ApiResponse<T>>(url, config).then(response => response.data),
-};
-
-export default api; 
+// Create and export a singleton instance
+const apiClient = new ApiClient();
+export default apiClient; 

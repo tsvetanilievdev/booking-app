@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
@@ -24,58 +24,73 @@ import {
   VisibilityOff,
   LockOutlined as LockIcon
 } from '@mui/icons-material';
-import Cookies from 'js-cookie';
-import api from '../api/apiClient';
+import { useAuth } from '../context/AuthContext';
+import { formatErrorMessage } from '../utils/api';
 
-// Validation schema
-const LoginSchema = Yup.object().shape({
+// Define validation schema
+const validationSchema = Yup.object({
   email: Yup.string()
-    .email('Invalid email address')
+    .email('Enter a valid email')
     .required('Email is required'),
   password: Yup.string()
-    .min(6, 'Password must be at least 6 characters')
-    .required('Password is required'),
+    .min(8, 'Password should be of minimum 8 characters length')
+    .required('Password is required')
 });
 
 export default function Login() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState('');
+  const { login, error: authError, isAuthenticated, isLoading, clearError } = useAuth();
+
+  // Check for redirects and messages
+  useEffect(() => {
+    // If already authenticated, redirect to dashboard
+    if (isAuthenticated) {
+      router.push('/dashboard');
+      return;
+    }
+
+    // Check for query params (e.g. ?registered=true)
+    const registered = searchParams.get('registered');
+    const reset = searchParams.get('reset');
+    
+    if (registered === 'true') {
+      alert('Registration successful! You can now log in with your credentials.');
+    }
+    
+    if (reset === 'true') {
+      alert('Password reset successful! You can now log in with your new password.');
+    }
+  }, [isAuthenticated, router, searchParams]);
+
+  // Clear auth errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+    };
+  }, [clearError]);
+
+  // Update local error state when auth error changes
+  useEffect(() => {
+    if (authError) {
+      setLoginError(authError);
+    }
+  }, [authError]);
 
   const handleSubmit = async (values: { email: string; password: string }, { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }) => {
+    setLoginError('');
+    
     try {
-      setError(null);
+      console.log('Login attempt:', values.email);
+      await login(values.email, values.password);
       
-      // In a real app, we would call the API
-      // const response = await api.post('/auth/login', values);
-      
-      // For demo purposes, simulate successful login with mock data
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockResponse = {
-        status: 'success',
-        message: 'Login successful',
-        data: {
-          token: 'mock-jwt-token',
-          user: {
-            id: '1',
-            name: 'Demo User',
-            email: values.email,
-            role: 'ADMIN'
-          }
-        }
-      };
-      
-      // Store token in cookie
-      Cookies.set('token', mockResponse.data.token, { expires: 7 });
-      
-      // Store user info in localStorage
-      localStorage.setItem('user', JSON.stringify(mockResponse.data.user));
-      
-      // Redirect to dashboard
-      router.push('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      // No need to redirect here, the AuthContext will handle it
+    } catch (err) {
+      console.error('Login error:', err);
+      setLoginError(formatErrorMessage(err) || 'An unexpected error occurred');
+    } finally {
       setSubmitting(false);
     }
   };
@@ -85,61 +100,27 @@ export default function Login() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          py: 4,
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            width: '100%',
-            borderRadius: 2,
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              mb: 3,
-            }}
-          >
-            <Box
-              sx={{
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-                borderRadius: '50%',
-                p: 1,
-                mb: 2,
-              }}
-            >
-              <LockIcon fontSize="large" />
-            </Box>
+    <Container maxWidth="sm">
+      <Box my={4} display="flex" flexDirection="column" alignItems="center">
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          {/* Sign in header */}
+          <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
+            <LockIcon fontSize="large" color="primary" sx={{ mb: 1 }} />
             <Typography component="h1" variant="h5">
-              Sign in to Booking System
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Enter your credentials to access your account
+              Sign in
             </Typography>
           </Box>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
+          {/* Error alert */}
+          {loginError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {loginError}
             </Alert>
           )}
 
           <Formik
             initialValues={{ email: '', password: '' }}
-            validationSchema={LoginSchema}
+            validationSchema={validationSchema}
             onSubmit={handleSubmit}
           >
             {({ isSubmitting, errors, touched }) => (
@@ -178,11 +159,11 @@ export default function Login() {
                           {showPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
-                    ),
+                    )
                   }}
                 />
-                <Box sx={{ textAlign: 'right', mt: 1 }}>
-                  <Link href="/reset-password" style={{ textDecoration: 'none' }}>
+                <Box mt={2} mb={2} textAlign="right">
+                  <Link href="/forgot-password" style={{ textDecoration: 'none' }}>
                     <Typography variant="body2" color="primary">
                       Forgot password?
                     </Typography>
@@ -192,33 +173,32 @@ export default function Login() {
                   type="submit"
                   fullWidth
                   variant="contained"
-                  sx={{ mt: 3, mb: 2, py: 1.5 }}
-                  disabled={isSubmitting}
+                  color="primary"
+                  disabled={isSubmitting || isLoading}
+                  sx={{ mt: 2, mb: 2 }}
                 >
-                  {isSubmitting ? <CircularProgress size={24} /> : 'Sign In'}
+                  {(isSubmitting || isLoading) ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Sign In'
+                  )}
                 </Button>
+                <Divider sx={{ my: 2 }} />
+                <Grid container justifyContent="center">
+                  <Grid item>
+                    <Typography variant="body2">
+                      Don't have an account?{' '}
+                      <Link href="/signup" style={{ textDecoration: 'none' }}>
+                        <Typography component="span" variant="body2" color="primary">
+                          Sign up
+                        </Typography>
+                      </Link>
+                    </Typography>
+                  </Grid>
+                </Grid>
               </Form>
             )}
           </Formik>
-
-          <Divider sx={{ my: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              OR
-            </Typography>
-          </Divider>
-
-          <Grid container justifyContent="center">
-            <Grid item>
-              <Typography variant="body2">
-                Don't have an account?{' '}
-                <Link href="/register" style={{ textDecoration: 'none' }}>
-                  <Typography component="span" variant="body2" color="primary">
-                    Sign up
-                  </Typography>
-                </Link>
-              </Typography>
-            </Grid>
-          </Grid>
         </Paper>
       </Box>
     </Container>

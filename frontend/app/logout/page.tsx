@@ -3,23 +3,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
-export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
+export default function LogoutPage() {
+  const { logout } = useAuth();
   const router = useRouter();
   
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        console.log('User is authenticated, redirecting to dashboard');
-        router.push('/dashboard');
-      } else {
-        console.log('User is not authenticated, redirecting to login');
+    const performLogout = async () => {
+      // Small delay to ensure the page is rendered before logout
+      setTimeout(() => {
+        logout();
         router.push('/login');
-      }
-    }
-  }, [isAuthenticated, isLoading, router]);
+      }, 500);
+    };
+    
+    performLogout();
+  }, [logout, router]);
   
   return (
     <Box
@@ -34,8 +34,8 @@ export default function Home() {
     >
       <CircularProgress size={60} />
       <Typography variant="h5" sx={{ mt: 4 }}>
-        Redirecting...
+        Logging out...
       </Typography>
     </Box>
   );
-}
+} 

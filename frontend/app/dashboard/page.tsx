@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   Box, 
   Grid, 
@@ -46,6 +46,8 @@ import MainLayout from '../components/layout/MainLayout';
 import LoadingState from '../components/common/LoadingState';
 import useData from '../hooks/useData';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
+import { getUserBookings, Booking } from '../api/bookingApi';
 
 // Interface definitions
 interface DashboardStats {
@@ -119,7 +121,11 @@ const mockData: DashboardData = {
 export default function Dashboard() {
   const theme = useTheme();
   const router = useRouter();
+  const { isAuthenticated, user } = useAuth();
   const [tabValue, setTabValue] = useState(0);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
   
   // Use the custom hook for data fetching and loading state management
   const fetchDashboardData = useCallback(async (): Promise<DashboardData> => {
@@ -143,9 +149,35 @@ export default function Dashboard() {
     fetchOnMount: true
   });
   
+  // Fetch real bookings data
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchBookings = async () => {
+      setBookingsLoading(true);
+      try {
+        const response = await getUserBookings(1, 5);
+        if (response.status === 'success' && response.data?.bookings) {
+          setBookings(response.data.bookings);
+        } else {
+          setBookingsError('Failed to load bookings');
+        }
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setBookingsError('An error occurred while fetching bookings');
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, [isAuthenticated, router]);
+
   // Extract the data for easier access
   const stats = data?.stats || mockData.stats;
-  const appointments = data?.appointments || mockData.appointments;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -174,15 +206,12 @@ export default function Dashboard() {
     }
   };
 
-  // Content to render when data is ready
+  // Update the renderContent function to use real bookings data
   const renderContent = () => (
-    <>
-      {/* KPI Summary Cards - Most important metrics */}
-      <Box mb={4}>
-        <Typography variant="h6" gutterBottom>
-          Business Overview
-        </Typography>
-        <Grid container spacing={3}>
+    <Box sx={{ flexGrow: 1, py: 4 }}>
+      <Container maxWidth="lg">
+        {/* Stats Cards */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} lg={3}>
             <Card elevation={0}>
               <CardContent>
@@ -287,178 +316,186 @@ export default function Dashboard() {
             </Card>
           </Grid>
         </Grid>
-      </Box>
 
-      {/* Detailed Section */}
-      <Grid container spacing={3}>
-        {/* Left Column - Upcoming Appointments */}
-        <Grid item xs={12} md={7} lg={8}>
-          <Card elevation={0}>
-            <CardHeader 
-              title="Upcoming Appointments" 
-              titleTypographyProps={{ variant: 'h6' }}
-              action={
-                <Box>
+        {/* Main Content Cards */}
+        <Grid container spacing={3}>
+          {/* Upcoming Appointments Card */}
+          <Grid item xs={12} md={6}>
+            <Card sx={{ height: '100%' }}>
+              <CardHeader 
+                title="Upcoming Appointments" 
+                action={
                   <Button 
                     size="small" 
-                    color="primary" 
-                    onClick={() => router.push('/calendar')}
+                    startIcon={<AddIcon />}
+                    onClick={() => router.push('/bookings/new')}
                   >
-                    View Calendar
+                    Book New
                   </Button>
-                  <IconButton size="small">
-                    <MoreIcon />
-                  </IconButton>
-                </Box>
-              }
-            />
-            <Divider />
-            <CardContent sx={{ p: 0 }}>
-              <List disablePadding>
-                {appointments.length > 0 ? (
-                  appointments.map((appointment) => (
-                    <ListItem
-                      key={appointment.id}
-                      divider
-                      secondaryAction={
-                        <Chip 
-                          label={appointment.status} 
-                          color={getStatusColor(appointment.status) as any}
-                          size="small"
-                        />
-                      }
-                    >
-                      <ListItemAvatar>
-                        <Avatar>
-                          <TimeIcon />
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={
-                          <Typography variant="subtitle2">
-                            {appointment.clientName} - {appointment.serviceName}
-                          </Typography>
-                        }
-                        secondary={
-                          <Typography variant="body2" color="text.secondary">
-                            {format(appointment.date, 'EEEE, MMMM d • h:mm a')}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                  ))
-                ) : (
-                  <ListItem>
-                    <ListItemText
-                      primary="No upcoming appointments"
-                      secondary="Your schedule is clear for now"
-                    />
-                  </ListItem>
-                )}
-              </List>
-              {appointments.length > 0 && (
-                <Box sx={{ p: 2, textAlign: 'center' }}>
-                  <Button 
-                    color="primary" 
-                    size="small"
-                    onClick={() => router.push('/calendar')}
-                  >
-                    View All Appointments
-                  </Button>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        {/* Right Column - Quick Actions and Notifications */}
-        <Grid item xs={12} md={5} lg={4}>
-          <Stack spacing={3}>
-            {/* Quick Actions Card */}
-            <Card elevation={0}>
-              <CardHeader 
-                title="Quick Actions" 
-                titleTypographyProps={{ variant: 'h6' }}
-              />
-              <Divider />
-              <CardContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Button 
-                      fullWidth 
-                      variant="outlined" 
-                      startIcon={<AddIcon />}
-                      onClick={() => router.push('/clients/new')}
-                      sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
-                    >
-                      Add Client
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button 
-                      fullWidth
-                      variant="outlined" 
-                      startIcon={<ServicesIcon />}
-                      onClick={() => router.push('/services/new')}
-                      sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
-                    >
-                      Add Service
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button 
-                      fullWidth
-                      variant="outlined" 
-                      startIcon={<CalendarIcon />}
-                      onClick={() => router.push('/calendar?view=month')}
-                      sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
-                    >
-                      Monthly View
-                    </Button>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Button 
-                      fullWidth
-                      variant="outlined" 
-                      startIcon={<SettingsIcon />}
-                      onClick={() => router.push('/settings')}
-                      sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
-                    >
-                      Settings
-                    </Button>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-            
-            {/* Recent Activity */}
-            <Card elevation={0}>
-              <CardHeader 
-                title="Recent Activity" 
-                titleTypographyProps={{ variant: 'h6' }}
-                action={
-                  <Tabs
-                    value={tabValue}
-                    onChange={handleTabChange}
-                    aria-label="activity tabs"
-                    sx={{ minHeight: '36px' }}
-                  >
-                    <Tab label="All" sx={{ minHeight: '36px', py: 0 }} />
-                    <Tab label="Clients" sx={{ minHeight: '36px', py: 0 }} />
-                  </Tabs>
                 }
               />
               <Divider />
-              <CardContent sx={{ py: 2 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                  Activity feed will be implemented in the next phase
-                </Typography>
+              <CardContent sx={{ p: 0 }}>
+                {bookingsLoading ? (
+                  <Box sx={{ p: 3 }}>
+                    <LinearProgress />
+                    <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+                      Loading your appointments...
+                    </Typography>
+                  </Box>
+                ) : bookingsError ? (
+                  <Alert severity="error" sx={{ m: 2 }}>
+                    {bookingsError}
+                  </Alert>
+                ) : bookings.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No upcoming appointments
+                    </Typography>
+                    <Button 
+                      variant="contained" 
+                      sx={{ mt: 2 }}
+                      startIcon={<AddIcon />}
+                      onClick={() => router.push('/bookings/new')}
+                    >
+                      Book an Appointment
+                    </Button>
+                  </Box>
+                ) : (
+                  <List sx={{ p: 0 }}>
+                    {bookings.map((booking) => (
+                      <ListItem 
+                        key={booking.id}
+                        secondaryAction={
+                          <Chip 
+                            label={booking.status} 
+                            color={getStatusColor(booking.status)}
+                            size="small"
+                          />
+                        }
+                        divider
+                      >
+                        <ListItemAvatar>
+                          <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
+                            <EventIcon />
+                          </Avatar>
+                        </ListItemAvatar>
+                        <ListItemText
+                          primary={`Booking #${booking.id.substring(0, 8)}`}
+                          secondary={
+                            <>
+                              <Typography component="span" variant="body2">
+                                {new Date(booking.date).toLocaleDateString()} at {booking.startTime}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                    <Box sx={{ p: 2, textAlign: 'center' }}>
+                      <Button 
+                        variant="outlined" 
+                        size="small"
+                        onClick={() => router.push('/bookings')}
+                      >
+                        View All Appointments
+                      </Button>
+                    </Box>
+                  </List>
+                )}
               </CardContent>
             </Card>
-          </Stack>
+          </Grid>
+
+          {/* Recent Activity Card */}
+          <Grid item xs={12} md={6}>
+            <Stack spacing={3}>
+              {/* Quick Actions Card */}
+              <Card elevation={0}>
+                <CardHeader 
+                  title="Quick Actions" 
+                  titleTypographyProps={{ variant: 'h6' }}
+                />
+                <Divider />
+                <CardContent>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Button 
+                        fullWidth 
+                        variant="outlined" 
+                        startIcon={<AddIcon />}
+                        onClick={() => router.push('/clients/new')}
+                        sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
+                      >
+                        Add Client
+                      </Button>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Button 
+                        fullWidth
+                        variant="outlined" 
+                        startIcon={<ServicesIcon />}
+                        onClick={() => router.push('/services/new')}
+                        sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
+                      >
+                        Add Service
+                      </Button>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Button 
+                        fullWidth
+                        variant="outlined" 
+                        startIcon={<CalendarIcon />}
+                        onClick={() => router.push('/calendar?view=month')}
+                        sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
+                      >
+                        Monthly View
+                      </Button>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Button 
+                        fullWidth
+                        variant="outlined" 
+                        startIcon={<SettingsIcon />}
+                        onClick={() => router.push('/settings')}
+                        sx={{ justifyContent: 'flex-start', textAlign: 'left', py: 1 }}
+                      >
+                        Settings
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+              
+              {/* Recent Activity */}
+              <Card elevation={0}>
+                <CardHeader 
+                  title="Recent Activity" 
+                  titleTypographyProps={{ variant: 'h6' }}
+                  action={
+                    <Tabs
+                      value={tabValue}
+                      onChange={handleTabChange}
+                      aria-label="activity tabs"
+                      sx={{ minHeight: '36px' }}
+                    >
+                      <Tab label="All" sx={{ minHeight: '36px', py: 0 }} />
+                      <Tab label="Clients" sx={{ minHeight: '36px', py: 0 }} />
+                    </Tabs>
+                  }
+                />
+                <Divider />
+                <CardContent sx={{ py: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    Activity feed will be implemented in the next phase
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Stack>
+          </Grid>
         </Grid>
-      </Grid>
-    </>
+      </Container>
+    </Box>
   );
 
   return (

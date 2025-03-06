@@ -5,6 +5,7 @@ import { ThemeProvider as MUIThemeProvider, CssBaseline } from '@mui/material';
 import { lightTheme, darkTheme } from './theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LanguageProvider } from './translations/LanguageContext';
+import { AuthProvider } from './context/AuthContext';
 
 // Define the ThemeContext
 type ThemeMode = 'light' | 'dark';
@@ -69,14 +70,16 @@ export function Providers({ children }: ProvidersProps) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeContext.Provider value={themeContextValue}>
-        <MUIThemeProvider theme={theme}>
-          <CssBaseline />
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
-        </MUIThemeProvider>
-      </ThemeContext.Provider>
+      <AuthProvider>
+        <ThemeContext.Provider value={themeContextValue}>
+          <MUIThemeProvider theme={theme}>
+            <CssBaseline />
+            <LanguageProvider>
+              {children}
+            </LanguageProvider>
+          </MUIThemeProvider>
+        </ThemeContext.Provider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 } 

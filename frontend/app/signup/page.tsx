@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -21,15 +21,36 @@ import {
 import {
   Visibility,
   VisibilityOff,
-  Google as GoogleIcon,
-  Facebook as FacebookIcon
+  PersonAddAlt as PersonAddIcon
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
+import * as yup from 'yup';
+import { formatErrorMessage } from '../utils/api';
+
+// Validation schema
+const validationSchema = yup.object({
+  firstName: yup.string().required('First name is required'),
+  lastName: yup.string().required('Last name is required'),
+  email: yup.string().email('Enter a valid email').required('Email is required'),
+  password: yup
+    .string()
+    .min(8, 'Password should be of minimum 8 characters length')
+    .matches(/[0-9]/, 'Password must contain at least one digit')
+    .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .required('Password is required'),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref('password')], 'Passwords must match')
+    .required('Confirm password is required'),
+  agreeToTerms: yup.boolean().oneOf([true], 'You must accept the terms and conditions')
+});
 
 export default function SignupPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { register, error: authError, isAuthenticated, isLoading, clearError } = useAuth();
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -41,6 +62,27 @@ export default function SignupPage() {
     confirmPassword: '',
     agreeToTerms: false
   });
+  
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
+  
+  // Clear auth errors when component unmounts
+  useEffect(() => {
+    return () => {
+      clearError();
+    };
+  }, [clearError]);
+
+  // Update local error state when auth error changes
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+    }
+  }, [authError]);
   
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, checked, type } = event.target;
@@ -63,45 +105,30 @@ export default function SignupPage() {
   
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
-    // Basic validation
-    if (!formValues.firstName || !formValues.lastName || !formValues.email || !formValues.password) {
-      setError('Please fill in all required fields');
-      return;
-    }
-    
-    if (formValues.password !== formValues.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    
-    if (!formValues.agreeToTerms) {
-      setError('You must agree to the terms and conditions');
-      return;
-    }
-    
-    // Password strength validation
-    if (formValues.password.length < 8) {
-      setError('Password must be at least 8 characters long');
-      return;
-    }
+    setError('');
     
     try {
-      setLoading(true);
+      // Validate form using yup
+      await validationSchema.validate(formValues, { abortEarly: false });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      console.log('Registration attempt:', formValues.email);
       
-      // Mock success - in real implementation, this would call the API
-      console.log('Registration form submitted:', formValues);
+      // Call register from auth context with our local RegisterData format
+      await register({
+        firstName: formValues.firstName,
+        lastName: formValues.lastName,
+        email: formValues.email,
+        password: formValues.password
+      });
       
-      // Redirect to dashboard or login page
-      router.push('/login?registered=true');
+      // No need to redirect here, the AuthContext will handle it
     } catch (err) {
-      console.error('Registration failed:', err);
-      setError('Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
+      if (err instanceof yup.ValidationError) {
+        setError(err.errors[0]);
+      } else {
+        console.error('Registration error:', err);
+        setError(formatErrorMessage(err) || 'An unexpected error occurred. Please try again.');
+      }
     }
   };
   
@@ -116,6 +143,7 @@ export default function SignupPage() {
             mb: 3
           }}
         >
+          <PersonAddIcon fontSize="large" color="primary" sx={{ mb: 1 }} />
           <Typography component="h1" variant="h4" gutterBottom>
             Create Your Account
           </Typography>
@@ -134,31 +162,30 @@ export default function SignupPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
+                name="firstName"
+                label="First Name"
                 fullWidth
                 required
-                label="First Name"
-                name="firstName"
                 value={formValues.firstName}
                 onChange={handleChange}
-                autoFocus
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
+                name="lastName"
+                label="Last Name"
                 fullWidth
                 required
-                label="Last Name"
-                name="lastName"
                 value={formValues.lastName}
                 onChange={handleChange}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
+                name="email"
+                label="Email Address"
                 fullWidth
                 required
-                label="Email Address"
-                name="email"
                 type="email"
                 value={formValues.email}
                 onChange={handleChange}
@@ -166,10 +193,10 @@ export default function SignupPage() {
             </Grid>
             <Grid item xs={12}>
               <TextField
+                name="password"
+                label="Password"
                 fullWidth
                 required
-                label="Password"
-                name="password"
                 type={showPassword ? 'text' : 'password'}
                 value={formValues.password}
                 onChange={handleChange}
@@ -177,6 +204,7 @@ export default function SignupPage() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
+                        aria-label="toggle password visibility"
                         onClick={handleTogglePasswordVisibility}
                         edge="end"
                       >
@@ -189,10 +217,10 @@ export default function SignupPage() {
             </Grid>
             <Grid item xs={12}>
               <TextField
+                name="confirmPassword"
+                label="Confirm Password"
                 fullWidth
                 required
-                label="Confirm Password"
-                name="confirmPassword"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={formValues.confirmPassword}
                 onChange={handleChange}
@@ -200,6 +228,7 @@ export default function SignupPage() {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
+                        aria-label="toggle confirm password visibility"
                         onClick={handleToggleConfirmPasswordVisibility}
                         edge="end"
                       >
@@ -223,12 +252,8 @@ export default function SignupPage() {
                 label={
                   <Typography variant="body2">
                     I agree to the{' '}
-                    <MuiLink component={Link} href="/terms">
-                      Terms of Service
-                    </MuiLink>{' '}
-                    and{' '}
-                    <MuiLink component={Link} href="/privacy">
-                      Privacy Policy
+                    <MuiLink component={Link} href="/terms" color="primary">
+                      Terms and Conditions
                     </MuiLink>
                   </Typography>
                 }
@@ -242,45 +267,18 @@ export default function SignupPage() {
             variant="contained"
             color="primary"
             size="large"
-            disabled={loading}
+            disabled={isLoading}
             sx={{ mt: 3, mb: 2 }}
           >
-            {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Sign Up'}
           </Button>
           
-          <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              OR
-            </Typography>
-          </Divider>
+          <Divider sx={{ my: 2 }} />
           
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-                sx={{ py: 1 }}
-              >
-                Sign up with Google
-              </Button>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<FacebookIcon />}
-                sx={{ py: 1 }}
-              >
-                Sign up with Facebook
-              </Button>
-            </Grid>
-          </Grid>
-          
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
+          <Box textAlign="center">
             <Typography variant="body2">
               Already have an account?{' '}
-              <MuiLink component={Link} href="/login">
+              <MuiLink component={Link} href="/login" color="primary">
                 Sign in
               </MuiLink>
             </Typography>
