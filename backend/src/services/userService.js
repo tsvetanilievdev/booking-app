@@ -120,3 +120,21 @@ export const deleteUser = async (id) => {
         };
     }
 };
+
+export const getUserByResetToken = async (resetToken) => {
+    try {
+        const user = await prisma.user.findFirst({
+            where: { 
+                resetToken,
+                isDeleted: false
+            }
+        });
+        return user;
+    } catch (error) {
+        logger.error('Get user by reset token error:', error);
+        throw {
+            type: 'SERVER_ERROR',
+            message: 'Failed to fetch user by reset token'
+        };
+    }
+};

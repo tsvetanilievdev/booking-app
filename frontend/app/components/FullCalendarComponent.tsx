@@ -277,6 +277,13 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
   };
 
   const validateForm = (): boolean => {
+    // First check for user authentication
+    if (!user || !user.id) {
+      setErrorMessage('You must be logged in to create appointments');
+      setIsSnackbarOpen(true);
+      return false;
+    }
+    
     // Create a validation errors object
     const errors = {
       clientId: !eventFormData.clientId,
@@ -284,13 +291,6 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
       date: !eventFormData.date,
       startTime: !eventFormData.startTime
     };
-    
-    // First check for user authentication
-    if (!user || !user.id) {
-      setErrorMessage('You must be logged in to create appointments');
-      setIsSnackbarOpen(true);
-      return false;
-    }
     
     // Collect validation messages for each field
     const validationMessages = [];
@@ -321,27 +321,28 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
         errors.date = true;
         validationMessages.push('Date format must be YYYY-MM-DD');
       }
-      
-      // Check if date is in the past
-      const selectedDate = new Date(eventFormData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      if (selectedDate < today) {
-        errors.date = true;
-        validationMessages.push('Cannot book appointments in the past');
-      }
     }
     
     // Validate start time
     if (errors.startTime) {
       validationMessages.push('Start time is required');
-    } else {
-      // Validate that the time can be converted properly
-      const formattedStartTime = formatTimeForBackend(eventFormData.startTime);
-      if (!formattedStartTime) {
+    }
+    
+    // If basic validation passes, also check if appointment is in the future
+    if (!errors.date && !errors.startTime) {
+      // Create a Date object from the selected date and time
+      const formattedDateTime = formatTimeForBackend(eventFormData.startTime, eventFormData.date);
+      if (formattedDateTime) {
+        const appointmentDate = new Date(formattedDateTime);
+        const now = new Date();
+        
+        if (appointmentDate <= now) {
+          errors.startTime = true;
+          validationMessages.push('Appointment time must be in the future');
+        }
+      } else {
         errors.startTime = true;
-        validationMessages.push('Invalid time format');
+        validationMessages.push('Invalid date/time format');
       }
     }
     
@@ -358,23 +359,31 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
     return true;
   };
 
-  // Update the formatTimeForBackend function to return a string
-  const formatTimeForBackend = (timeString: string): string => {
+  // Update the formatTimeForBackend function to return a full ISO date string
+  const formatTimeForBackend = (timeString: string, dateString: string): string => {
     // Handle empty or invalid time strings
-    if (!timeString || timeString.trim() === '') {
-      console.error('Invalid time string provided:', timeString);
+    if (!timeString || timeString.trim() === '' || !dateString || dateString.trim() === '') {
+      console.error('Invalid time or date string provided:', { timeString, dateString });
       return ''; // Return empty string to trigger validation error
     }
     
     try {
+      // Parse the date string (expected format: YYYY-MM-DD)
+      const [year, month, day] = dateString.split('-').map(Number);
+      
       // Check if this is a 12-hour format time with AM/PM
       const is12HourFormat = timeString.toLowerCase().includes('am') || timeString.toLowerCase().includes('pm');
       
+      let hours = 0;
+      let minutes = 0;
+      
       if (is12HourFormat) {
-        // Parse 12-hour format (e.g., "9:30 AM")
+        // Parse 12-hour format (e.g., "12:30 PM")
         const isPM = timeString.toLowerCase().includes('pm');
         const timePart = timeString.replace(/\s*(am|pm)\s*/i, '');
-        let [hours, minutes] = timePart.split(':').map(Number);
+        const [hoursStr, minutesStr] = timePart.split(':');
+        hours = parseInt(hoursStr, 10);
+        minutes = parseInt(minutesStr, 10);
         
         // Adjust hours for PM (except 12 PM)
         if (isPM && hours !== 12) {
@@ -384,28 +393,30 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
         if (!isPM && hours === 12) {
           hours = 0;
         }
-        
-        // Validate hours and minutes
-        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-          console.error('Invalid time components from 12-hour format:', { timeString, hours, minutes });
-          return '';
-        }
-        
-        // Format as HH:MM string
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       } else {
         // Parse 24-hour format (e.g., "14:30")
-        const [hours, minutes] = timeString.split(':').map(Number);
-        
-        // Validate hours and minutes are valid numbers
-        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-          console.error('Invalid time components:', { hours, minutes });
-          return '';
-        }
-        
-        // Return as is if already in correct format
-        return timeString;
+        const [hoursStr, minutesStr] = timeString.split(':');
+        hours = parseInt(hoursStr, 10);
+        minutes = parseInt(minutesStr, 10);
       }
+      
+      // Validate all components
+      if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(hours) || isNaN(minutes)) {
+        console.error('Invalid date/time components:', { year, month, day, hours, minutes });
+        return '';
+      }
+      
+      // Create a Date object with the parsed values
+      const date = new Date(year, month - 1, day, hours, minutes, 0);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date created:', date);
+        return '';
+      }
+      
+      // Return as ISO string
+      return date.toISOString();
     } catch (error) {
       console.error('Error formatting time for backend:', error);
       return '';
@@ -417,7 +428,8 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
       setLoading(true);
       
       try {
-        const formattedStartTime = formatTimeForBackend(eventFormData.startTime);
+        // Now we pass both the time and date to the formatTimeForBackend function
+        const formattedStartTime = formatTimeForBackend(eventFormData.startTime, eventFormData.date);
         
         // Validate startTime is a proper value
         if (!formattedStartTime) {
@@ -439,7 +451,7 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
         // Create appointment data with proper validation
         const appointmentData: FixedCreateAppointmentData = {
           date: eventFormData.date,
-          startTime: formattedStartTime, // Use formatted string time
+          startTime: formattedStartTime, // Now this is a full ISO string
           clientId: eventFormData.clientId,
           serviceId: eventFormData.serviceId,
           notes: eventFormData.description || '', // Ensure notes is always a string
@@ -472,7 +484,7 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
         setIsSuccessSnackbarOpen(true);
         
         // Close dialog and reset form
-        setIsDialogOpen(false);
+      setIsDialogOpen(false);
         setEventFormData({
           title: '',
           clientId: '',
@@ -555,11 +567,11 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
         
         // Close dialog and reset form
         setIsDialogOpen(false);
-        setEventFormData({
-          title: '',
+      setEventFormData({
+        title: '',
           clientId: '',
           serviceId: '',
-          description: '',
+        description: '',
           date: '',
           startTime: '',
           duration: 60
@@ -743,14 +755,14 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
               </FormControl>
               
               {/* Date Field */}
-              <TextField
+          <TextField
                 id="date"
                 name="date"
                 label={t('calendar.date')}
                 type="date"
-                fullWidth
+            fullWidth
                 value={eventFormData.date}
-                onChange={handleInputChange}
+            onChange={handleInputChange}
                 InputLabelProps={{ shrink: true }}
                 error={formErrors.date}
                 helperText={formErrors.date && t('validation.required')}
@@ -764,7 +776,7 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
                   id="startTime"
                   name="startTime"
                   value={eventFormData.startTime}
-                  onChange={handleInputChange}
+            onChange={handleInputChange}
                   label={t('calendar.startTime')}
                   disabled={!eventFormData.date || !eventFormData.serviceId}
                 >
@@ -801,17 +813,17 @@ const FullCalendarComponent: React.FC<FullCalendarComponentProps> = ({ initialEv
               </FormControl>
               
               {/* Notes */}
-              <TextField
+          <TextField
                 id="description"
-                name="description"
-                label={t('calendar.notes')}
+            name="description"
+            label={t('calendar.notes')}
                 multiline
                 rows={3}
                 fullWidth
-                value={eventFormData.description}
-                onChange={handleInputChange}
-              />
-            </Box>
+            value={eventFormData.description}
+            onChange={handleInputChange}
+            />
+          </Box>
           )}
         </DialogContent>
         

@@ -95,37 +95,63 @@ export const getAppointmentById = async (id: string): Promise<{ data: Appointmen
  */
 export const createAppointment = async (appointmentData: CreateAppointmentData): Promise<{ data: Appointment | null; error?: string }> => {
   try {
-    // Validate and sanitize data before sending to API
+    // Ensure the date and time formats match what the backend expects
     const validatedData: CreateAppointmentData = {
       date: appointmentData.date,
-      startTime: appointmentData.startTime,
+      startTime: appointmentData.startTime, // Should already be an ISO string
       clientId: appointmentData.clientId,
       serviceId: appointmentData.serviceId,
-      // Ensure notes is a string or undefined, not null
       notes: appointmentData.notes || undefined,
-      // Include userId
       userId: appointmentData.userId
     };
     
-    console.log('Sending validated appointment data to API:', validatedData);
+    // Log what we're sending to the API
+    console.log('Sending appointment data to API:', {
+      ...validatedData,
+      startTime: new Date(validatedData.startTime).toISOString() // Ensure it's a proper ISO string
+    });
     
+    // Make the API request
     const response = await apiClient.post<AppointmentResponse>('/appointments', validatedData);
     return { data: response.data as Appointment };
   } catch (error) {
     console.error('Error creating appointment:', error);
     
-    // Check if the error contains response data with error details
-    if (error && typeof error === 'object' && 'data' in error) {
-      const errorData = (error as any).data;
-      return { 
-        data: null, 
-        error: errorData?.error?.message || 'Failed to create appointment' 
-      };
+    // Extract more detailed error information if possible
+    let errorMessage = 'Failed to create appointment';
+    
+    if (error && typeof error === 'object') {
+      // Try to get validation errors
+      if ('data' in error) {
+        const errorData = (error as any).data;
+        
+        // Handle Zod validation errors
+        if (errorData?.error?.type === 'ZodError') {
+          if (Array.isArray(errorData.error.message)) {
+            // Parse the JSON string if it's a stringified array
+            try {
+              const parsedErrors = JSON.parse(errorData.error.message);
+              const errorMessages = parsedErrors.map((err: any) => 
+                `${err.path.join('.')}: ${err.message || err.code}`
+              );
+              errorMessage = `Validation errors: ${errorMessages.join('; ')}`;
+            } catch (parseError) {
+              errorMessage = `Validation error: ${errorData.error.message}`;
+            }
+          } else {
+            errorMessage = `Validation error: ${errorData.error.message}`;
+          }
+        } else if (errorData?.message) {
+          errorMessage = errorData.message;
+        }
+      } else if ('message' in error) {
+        errorMessage = (error as Error).message;
+      }
     }
     
     return { 
       data: null, 
-      error: error instanceof Error ? error.message : 'Failed to create appointment'
+      error: errorMessage
     };
   }
 };

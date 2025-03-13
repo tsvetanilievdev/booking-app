@@ -23,6 +23,8 @@ model User {
   updatedAt DateTime @updatedAt
   appointments Appointment[]
   isDeleted Boolean @default(false)
+  resetToken String? 
+  resetTokenExpiry DateTime?
 }
 
 model Service {

@@ -70,6 +70,11 @@ interface Appointment {
   price: number;
 }
 
+// Enhanced Client interface to include possible appointments
+interface ClientWithAppointments extends ApiClient {
+  appointments?: any[];
+}
+
 interface Client extends ApiClient {
   totalSpent?: number;
   lastAppointment?: string;
@@ -110,60 +115,97 @@ export default function Clients() {
   const [filterValue, setFilterValue] = useState<'all' | 'vip'>('all');
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      setLoading(true);
-      try {
-        // Get clients from API
-        const response = await getClients();
-        console.log('Client response raw:', response);
-        
-        if (response.data && response.data.length > 0) {
-          // Add additional debugging
-          console.log('Client data before processing:', response.data);
-          
-          // Transform clients to add frontend-specific fields if needed
-          const clientsWithExtras = response.data.map(client => {
-            console.log('Processing client:', client);
-            return {
-              ...client,
-              // Ensure all required fields are present
-              id: client.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
-              name: client.name || 'Unknown',
-              email: client.email || '',
-              phone: client.phone || '',
-              notes: Array.isArray(client.notes) ? client.notes : (client.notes ? [client.notes] : []),
-              // Add frontend-specific fields
-              totalSpent: 0, // This would come from the API in a real implementation
-              isVip: client.appointmentCount ? client.appointmentCount > 5 : false, // Simple VIP rule
-              lastAppointment: undefined // Would come from API
-            };
-          });
-          
-          console.log('Processed clients:', clientsWithExtras);
-          setClients(clientsWithExtras);
-          setFilteredClients(clientsWithExtras);
-        } else {
-          console.warn('No clients returned from API:', response);
-          setClients([]);
-          setFilteredClients([]);
-          
-          // Show a message if there's an error
-          if (response.error) {
-            setError(`Failed to load clients: ${response.error}`);
-          } else if (response.data && response.data.length === 0) {
-            // This is not an error, just no clients yet
-            console.log('No clients found in the system');
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching clients:', err);
-        setError('Failed to load clients. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
+  // Add a function to validate appointment data
+  const validateAppointmentData = (appointment: any): Appointment => {
+    // Ensure all fields have valid values or defaults
+    return {
+      id: appointment.id || `temp-${Math.random().toString(36).slice(2, 9)}`,
+      date: appointment.date || new Date().toISOString().split('T')[0],
+      // Handle different time formats - could be a number, string, or date string
+      startTime: typeof appointment.startTime === 'number' 
+        ? appointment.startTime 
+        : (typeof appointment.startTime === 'string' && /^\d+$/.test(appointment.startTime))
+          ? parseInt(appointment.startTime, 10)
+          : 0,
+      status: ['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(appointment.status) 
+        ? appointment.status as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+        : 'SCHEDULED',
+      serviceName: appointment.serviceName || appointment.service?.name || 'Unknown Service',
+      price: typeof appointment.price === 'number' && !isNaN(appointment.price)
+        ? appointment.price
+        : (appointment.service?.price || 0)
     };
+  };
 
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      // Get clients from API
+      const response = await getClients();
+      console.log('Client response raw:', response);
+      
+      if (response.data && response.data.length > 0) {
+        // Add additional debugging
+        console.log('Client data before processing:', response.data);
+        
+        // Transform clients to add frontend-specific fields if needed
+        const clientsWithExtras = response.data.map((client: ClientWithAppointments) => {
+          console.log('Processing client:', client);
+          
+          // Process appointments if they exist
+          let processedAppointments: Appointment[] = [];
+          if (client.appointments && Array.isArray(client.appointments)) {
+            console.log(`Client ${client.id} has ${client.appointments.length} appointments`);
+            
+            // Map each appointment with validated data
+            processedAppointments = client.appointments.map((appointment: any) => {
+              console.log('Processing appointment:', appointment);
+              return validateAppointmentData(appointment);
+            });
+          }
+          
+          return {
+            ...client,
+            // Ensure all required fields are present
+            id: client.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
+            name: client.name || 'Unknown',
+            email: client.email || '',
+            phone: client.phone || '',
+            notes: Array.isArray(client.notes) ? client.notes : (client.notes ? [client.notes] : []),
+            // Add frontend-specific fields
+            totalSpent: 0, // This would come from the API in a real implementation
+            isVip: client.appointmentCount ? client.appointmentCount > 5 : false, // Simple VIP rule
+            lastAppointment: undefined, // Would come from API
+            // Add the processed appointments
+            appointments: processedAppointments
+          };
+        });
+        
+        console.log('Processed clients:', clientsWithExtras);
+        setClients(clientsWithExtras);
+        setFilteredClients(clientsWithExtras);
+      } else {
+        console.warn('No clients returned from API:', response);
+        setClients([]);
+        setFilteredClients([]);
+        
+        // Show a message if there's an error
+        if (response.error) {
+          setError(`Failed to load clients: ${response.error}`);
+        } else if (response.data && response.data.length === 0) {
+          // This is not an error, just no clients yet
+          console.log('No clients found in the system');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+      setError('Failed to load clients. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchClients();
   }, []);
 
@@ -367,19 +409,66 @@ export default function Clients() {
     setPage(0);
   };
 
-  const formatDateTime = (date: string, time: number) => {
-    const hours = Math.floor(time);
-    const minutes = (time - hours) * 60;
+  const formatDateTime = (date: string | undefined, time: number | undefined | null) => {
+    // Check if date or time is null/undefined
+    if (!date || time === undefined || time === null) {
+      return 'N/A';
+    }
     
-    const dateObj = new Date(date);
-    dateObj.setHours(hours, minutes);
-    
-    return format(dateObj, 'MMM d, yyyy h:mm a');
+    try {
+      // Try to create a valid date object
+      const dateObj = new Date(date);
+      
+      // Check if the date is valid
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date:', date);
+        return 'Invalid date';
+      }
+      
+      // Extract hours and minutes from time value safely
+      const hours = Math.floor(time);
+      const minutes = Math.round((time - hours) * 60);
+      
+      // Validate hours and minutes
+      if (isNaN(hours) || hours < 0 || hours > 23 || isNaN(minutes) || minutes < 0 || minutes > 59) {
+        console.warn('Invalid time components:', { hours, minutes, originalTime: time });
+        return `${format(dateObj, 'MMM d, yyyy')} (time: N/A)`;
+      }
+      
+      // Set hours and minutes on the date object
+      dateObj.setHours(hours, minutes);
+      
+      // Final check if date is still valid after setting hours/minutes
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date after setting hours/minutes:', { date, time, hours, minutes });
+        return `${format(new Date(date), 'MMM d, yyyy')} (time: N/A)`;
+      }
+      
+      // Format the valid date
+      return format(dateObj, 'MMM d, yyyy h:mm a');
+    } catch (error) {
+      console.error('Error formatting date/time:', error, { date, time });
+      return 'Date error';
+    }
   };
 
   const formatDate = (date: string | undefined) => {
     if (!date) return 'N/A';
-    return format(new Date(date), 'MMM d, yyyy');
+    
+    try {
+      const dateObj = new Date(date);
+      
+      // Check if the date is valid
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date in formatDate:', date);
+        return 'Invalid date';
+      }
+      
+      return format(dateObj, 'MMM d, yyyy');
+    } catch (error) {
+      console.error('Error formatting date:', error, { date });
+      return 'Date error';
+    }
   };
 
   const renderClientForm = () => {

@@ -166,3 +166,13 @@ export const idParamSchema = z.object({
     .or(z.string().uuid("ID must be a valid UUID"))
 });
 
+// Password reset schemas
+export const forgotPasswordSchema = z.object({
+  email: emailRule
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  password: passwordRule
+});
+
