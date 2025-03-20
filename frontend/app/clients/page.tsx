@@ -1,1060 +1,358 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Chip,
-  Tooltip,
-  Alert,
-  CircularProgress,
-  InputAdornment,
-  Tabs,
-  Tab,
-  TablePagination,
-  Divider,
-  Badge,
-  Switch,
-  FormControlLabel,
-  Stack,
-  Collapse,
-  Card,
-  CardContent,
-  Grid
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Search as SearchIcon,
-  ContentCopy as CopyIcon,
-  Mail as MailIcon,
-  Phone as PhoneIcon,
-  CalendarMonth as CalendarIcon, 
-  Loyalty as LoyaltyIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Notes as NotesIcon,
-  MoreVert as MoreVertIcon,
-  StarOutline as StarOutlineIcon,
-  Star as StarIcon,
-  PersonOff as PersonOffIcon,
-  PersonAdd as PersonAddIcon
-} from '@mui/icons-material';
-import { Formik, Form, Field } from 'formik';
-import * as Yup from 'yup';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
+import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { 
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Search, Plus, MoreHorizontal, Calendar, Mail, Phone, Edit, Trash } from 'lucide-react';
 import { format } from 'date-fns';
-import MainLayout from '../components/layout/MainLayout';
-import { getClients, createClient, updateClient, deleteClient, Client as ApiClient, CreateClientData, UpdateClientData } from '../api/clientApi';
 
-interface Appointment {
-  id: string;
-  date: string;
-  startTime: number;
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
-  serviceName: string;
-  price: number;
-}
+// Mock data for clients
+const clientsData = [
+  {
+    id: 1,
+    name: 'John Smith',
+    email: 'john.smith@example.com',
+    phone: '+1 (555) 123-4567',
+    lastAppointment: new Date(2023, 4, 20),
+    totalAppointments: 8,
+    totalSpent: 560,
+  },
+  {
+    id: 2,
+    name: 'Sarah Johnson',
+    email: 'sarah.j@example.com',
+    phone: '+1 (555) 234-5678',
+    lastAppointment: new Date(2023, 5, 5),
+    totalAppointments: 12,
+    totalSpent: 890,
+  },
+  {
+    id: 3,
+    name: 'David Brown',
+    email: 'david.brown@example.com',
+    phone: '+1 (555) 345-6789',
+    lastAppointment: new Date(2023, 5, 12),
+    totalAppointments: 3,
+    totalSpent: 210,
+  },
+  {
+    id: 4,
+    name: 'Emma Wilson',
+    email: 'emma.w@example.com',
+    phone: '+1 (555) 456-7890',
+    lastAppointment: new Date(2023, 5, 1),
+    totalAppointments: 5,
+    totalSpent: 350,
+  },
+  {
+    id: 5,
+    name: 'Michael Davis',
+    email: 'michael.davis@example.com',
+    phone: '+1 (555) 567-8901',
+    lastAppointment: new Date(2023, 4, 15),
+    totalAppointments: 7,
+    totalSpent: 490,
+  },
+  {
+    id: 6,
+    name: 'Jennifer White',
+    email: 'jennifer.w@example.com',
+    phone: '+1 (555) 678-9012',
+    lastAppointment: new Date(2023, 5, 8),
+    totalAppointments: 9,
+    totalSpent: 720,
+  },
+  {
+    id: 7,
+    name: 'Robert Miller',
+    email: 'robert.m@example.com',
+    phone: '+1 (555) 789-0123',
+    lastAppointment: new Date(2023, 3, 28),
+    totalAppointments: 2,
+    totalSpent: 150,
+  },
+  {
+    id: 8,
+    name: 'Lisa Taylor',
+    email: 'lisa.t@example.com',
+    phone: '+1 (555) 890-1234',
+    lastAppointment: new Date(2023, 5, 10),
+    totalAppointments: 4,
+    totalSpent: 320,
+  },
+];
 
-// Enhanced Client interface to include possible appointments
-interface ClientWithAppointments extends ApiClient {
-  appointments?: any[];
-}
-
-interface Client extends ApiClient {
-  totalSpent?: number;
-  lastAppointment?: string;
-  isVip?: boolean;
-  appointments?: Appointment[];
-}
-
-// Validation schema for client form
-const ClientSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, 'Name is too short')
-    .max(100, 'Name is too long')
-    .required('Name is required'),
-  email: Yup.string()
-    .email('Invalid email format')
-    .required('Email is required'),
-  phone: Yup.string()
-    .matches(/^[0-9+\-() ]+$/, 'Invalid phone number format')
-    .min(7, 'Phone number is too short')
-    .max(20, 'Phone number is too long'),
-  notes: Yup.array().of(Yup.string())
-});
-
-export default function Clients() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [openDialog, setOpenDialog] = useState<boolean>(false);
-  const [dialogType, setDialogType] = useState<'create' | 'edit'>('create');
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
-  const [page, setPage] = useState<number>(0);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
-  const [filterValue, setFilterValue] = useState<'all' | 'vip'>('all');
-  const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Add a function to validate appointment data
-  const validateAppointmentData = (appointment: any): Appointment => {
-    // Ensure all fields have valid values or defaults
-    return {
-      id: appointment.id || `temp-${Math.random().toString(36).slice(2, 9)}`,
-      date: appointment.date || new Date().toISOString().split('T')[0],
-      // Handle different time formats - could be a number, string, or date string
-      startTime: typeof appointment.startTime === 'number' 
-        ? appointment.startTime 
-        : (typeof appointment.startTime === 'string' && /^\d+$/.test(appointment.startTime))
-          ? parseInt(appointment.startTime, 10)
-          : 0,
-      status: ['SCHEDULED', 'COMPLETED', 'CANCELLED'].includes(appointment.status) 
-        ? appointment.status as 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
-        : 'SCHEDULED',
-      serviceName: appointment.serviceName || appointment.service?.name || 'Unknown Service',
-      price: typeof appointment.price === 'number' && !isNaN(appointment.price)
-        ? appointment.price
-        : (appointment.service?.price || 0)
-    };
-  };
-
-  const fetchClients = async () => {
-    setLoading(true);
-    try {
-      // Get clients from API
-      const response = await getClients();
-      console.log('Client response raw:', response);
-      
-      if (response.data && response.data.length > 0) {
-        // Add additional debugging
-        console.log('Client data before processing:', response.data);
-        
-        // Transform clients to add frontend-specific fields if needed
-        const clientsWithExtras = response.data.map((client: ClientWithAppointments) => {
-          console.log('Processing client:', client);
-          
-          // Process appointments if they exist
-          let processedAppointments: Appointment[] = [];
-          if (client.appointments && Array.isArray(client.appointments)) {
-            console.log(`Client ${client.id} has ${client.appointments.length} appointments`);
-            
-            // Map each appointment with validated data
-            processedAppointments = client.appointments.map((appointment: any) => {
-              console.log('Processing appointment:', appointment);
-              return validateAppointmentData(appointment);
-            });
-          }
-          
-          return {
-            ...client,
-            // Ensure all required fields are present
-            id: client.id || `temp-${Math.random().toString(36).substr(2, 9)}`,
-            name: client.name || 'Unknown',
-            email: client.email || '',
-            phone: client.phone || '',
-            notes: Array.isArray(client.notes) ? client.notes : (client.notes ? [client.notes] : []),
-            // Add frontend-specific fields
-            totalSpent: 0, // This would come from the API in a real implementation
-            isVip: client.appointmentCount ? client.appointmentCount > 5 : false, // Simple VIP rule
-            lastAppointment: undefined, // Would come from API
-            // Add the processed appointments
-            appointments: processedAppointments
-          };
-        });
-        
-        console.log('Processed clients:', clientsWithExtras);
-        setClients(clientsWithExtras);
-        setFilteredClients(clientsWithExtras);
-      } else {
-        console.warn('No clients returned from API:', response);
-        setClients([]);
-        setFilteredClients([]);
-        
-        // Show a message if there's an error
-        if (response.error) {
-          setError(`Failed to load clients: ${response.error}`);
-        } else if (response.data && response.data.length === 0) {
-          // This is not an error, just no clients yet
-          console.log('No clients found in the system');
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching clients:', err);
-      setError('Failed to load clients. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function ClientsPage() {
+  const { user, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 5;
+  
+  // Filter clients based on search query
+  const filteredClients = clientsData.filter(client => 
+    client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    client.phone.includes(searchQuery)
+  );
+  
+  // Paginate clients
+  const paginatedClients = filteredClients.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+  
+  const totalPages = Math.ceil(filteredClients.length / itemsPerPage);
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [loading, isAuthenticated, router]);
 
   useEffect(() => {
-    // Filter clients based on search query and filter value
-    let results = clients;
-    
-    if (searchQuery) {
-      const lowerCaseQuery = searchQuery.toLowerCase();
-      results = results.filter(client => 
-        client.name.toLowerCase().includes(lowerCaseQuery) || 
-        client.email.toLowerCase().includes(lowerCaseQuery) || 
-        (client.phone?.includes(searchQuery) || false)
-      );
-    }
-    
-    if (filterValue === 'vip') {
-      results = results.filter(client => client.isVip);
-    }
-    
-    setFilteredClients(results);
-    setPage(0); // Reset to first page on filter change
-  }, [searchQuery, clients, filterValue]);
+    // Reset to first page when search query changes
+    setPage(1);
+  }, [searchQuery]);
 
-  const handleOpenDialog = (type: 'create' | 'edit', client: Client | null = null) => {
-    setDialogType(type);
-    setSelectedClient(client);
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setSelectedClient(null);
-  };
-
-  const handleDeleteClick = (client: Client) => {
-    setSelectedClient(client);
-    setDeleteConfirmOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (selectedClient) {
-      let submitting = true;
-      try {
-        const result: { success: boolean, error?: string } = await deleteClient(selectedClient.id);
-        
-        if (result.success) {
-          // Remove client from the list
-          setClients(prevClients => prevClients.filter(c => c.id !== selectedClient.id));
-          setFilteredClients(prevClients => prevClients.filter(c => c.id !== selectedClient.id));
-          setDeleteConfirmOpen(false);
-          setSelectedClient(null);
-          setAlertMessage({ type: 'success', text: 'Client deleted successfully!' });
-        } else {
-          throw new Error(result.error || 'Failed to delete client');
-        }
-      } catch (err) {
-        console.error('Error deleting client:', err);
-        setAlertMessage({ 
-          type: 'error', 
-          text: err instanceof Error ? err.message : 'Failed to delete client' 
-        });
-      } finally {
-        submitting = false;
-      }
-    }
-  };
-
-  const handleSubmit = async (values: any, { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }) => {
-    try {
-      let result: { 
-        data: Client | null; 
-        error?: string;
-        success?: boolean;
-      };
-      
-      // Ensure notes is an array of strings
-      const notesArray = values.notes ? 
-        (Array.isArray(values.notes) ? values.notes : [values.notes]) : 
-        [];
-      
-      if (dialogType === 'edit' && selectedClient) {
-        // Prepare update data
-        const updateData: UpdateClientData = {
-          name: values.name,
-          email: values.email,
-          phone: values.phone,
-          notes: notesArray // Use the array of notes
-        };
-        
-        // Update client
-        result = await updateClient(selectedClient.id, updateData);
-        
-        if (result.data) {
-          // Update the client in the list
-          setClients(prevClients => 
-            prevClients.map(c => c.id === selectedClient.id ? 
-              { 
-                ...c, 
-                ...result.data as Client,
-                // Preserve frontend-specific fields
-                totalSpent: c.totalSpent,
-                isVip: c.isVip,
-                lastAppointment: c.lastAppointment,
-                appointments: c.appointments 
-              } : c)
-          );
-          setFilteredClients(prevClients => 
-            prevClients.map(c => c.id === selectedClient.id ? 
-              { 
-                ...c, 
-                ...result.data as Client,
-                // Preserve frontend-specific fields
-                totalSpent: c.totalSpent,
-                isVip: c.isVip,
-                lastAppointment: c.lastAppointment,
-                appointments: c.appointments 
-              } : c)
-          );
-          setAlertMessage({ type: 'success', text: 'Client updated successfully!' });
-        } else {
-          throw new Error(result.error || 'Failed to update client');
-        }
-      } else {
-        // Prepare create data
-        const createData: CreateClientData = {
-          name: values.name,
-          email: values.email,
-          phone: values.phone,
-          notes: notesArray // Use the array of notes
-        };
-        
-        // Create new client
-        result = await createClient(createData);
-        
-        if (result.data) {
-          // Add the new client to the list
-          const newClient = {
-            ...result.data,
-            totalSpent: 0,
-            isVip: false,
-            appointmentCount: 0
-          } as Client;
-          
-          setClients(prevClients => [...prevClients, newClient]);
-          setFilteredClients(prevClients => [...prevClients, newClient]);
-          setAlertMessage({ type: 'success', text: 'Client created successfully!' });
-        } else {
-          throw new Error(result.error || 'Failed to create client');
-        }
-      }
-      
-      // Close dialog
-      handleCloseDialog();
-    } catch (err) {
-      console.error('Error saving client:', err);
-      
-      // Add special handling for the "Notes must be an array of strings" error
-      let errorMessage = err instanceof Error ? err.message : 'Failed to save client';
-      if (typeof errorMessage === 'string' && errorMessage.includes('Notes must be an array of strings')) {
-        errorMessage = 'Notes must be provided as an array of strings.';
-      }
-      
-      setAlertMessage({ 
-        type: 'error', 
-        text: errorMessage
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleToggleVipStatus = async (client: Client) => {
-    try {
-      // In a real app, update via API
-      // await api.put(`/clients/${client.id}/vip`, { isVip: !client.isVip });
-      
-      // Update local state
-      setClients(prevClients => 
-        prevClients.map(c => 
-          c.id === client.id 
-            ? { ...c, isVip: !c.isVip }
-            : c
-        )
-      );
-    } catch (err: any) {
-      setError(err.message || 'Failed to update VIP status');
-    }
-  };
-
-  const handleExpandClient = (clientId: string) => {
-    setExpandedClientId(expandedClientId === clientId ? null : clientId);
-  };
-
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const formatDateTime = (date: string | undefined, time: number | undefined | null) => {
-    // Check if date or time is null/undefined
-    if (!date || time === undefined || time === null) {
-      return 'N/A';
-    }
-    
-    try {
-      // Try to create a valid date object
-      const dateObj = new Date(date);
-      
-      // Check if the date is valid
-      if (isNaN(dateObj.getTime())) {
-        console.warn('Invalid date:', date);
-        return 'Invalid date';
-      }
-      
-      // Extract hours and minutes from time value safely
-      const hours = Math.floor(time);
-      const minutes = Math.round((time - hours) * 60);
-      
-      // Validate hours and minutes
-      if (isNaN(hours) || hours < 0 || hours > 23 || isNaN(minutes) || minutes < 0 || minutes > 59) {
-        console.warn('Invalid time components:', { hours, minutes, originalTime: time });
-        return `${format(dateObj, 'MMM d, yyyy')} (time: N/A)`;
-      }
-      
-      // Set hours and minutes on the date object
-      dateObj.setHours(hours, minutes);
-      
-      // Final check if date is still valid after setting hours/minutes
-      if (isNaN(dateObj.getTime())) {
-        console.warn('Invalid date after setting hours/minutes:', { date, time, hours, minutes });
-        return `${format(new Date(date), 'MMM d, yyyy')} (time: N/A)`;
-      }
-      
-      // Format the valid date
-      return format(dateObj, 'MMM d, yyyy h:mm a');
-    } catch (error) {
-      console.error('Error formatting date/time:', error, { date, time });
-      return 'Date error';
-    }
-  };
-
-  const formatDate = (date: string | undefined) => {
-    if (!date) return 'N/A';
-    
-    try {
-      const dateObj = new Date(date);
-      
-      // Check if the date is valid
-      if (isNaN(dateObj.getTime())) {
-        console.warn('Invalid date in formatDate:', date);
-        return 'Invalid date';
-      }
-      
-      return format(dateObj, 'MMM d, yyyy');
-    } catch (error) {
-      console.error('Error formatting date:', error, { date });
-      return 'Date error';
-    }
-  };
-
-  const renderClientForm = () => {
-    const initialValues = selectedClient || {
-      name: '',
-      email: '',
-      phone: '',
-      notes: []
-    };
-    
+  if (loading) {
     return (
-      <Formik
-        initialValues={initialValues}
-        validationSchema={ClientSchema}
-        onSubmit={handleSubmit}
-      >
-        {({ isSubmitting, errors, touched, values, setFieldValue }) => (
-          <Form>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-              <Field
-                as={TextField}
-                name="name"
-                label="Name"
-                fullWidth
-                error={touched.name && Boolean(errors.name)}
-                helperText={touched.name && errors.name}
-              />
-              <Field
-                as={TextField}
-                name="email"
-                label="Email"
-                fullWidth
-                error={touched.email && Boolean(errors.email)}
-                helperText={touched.email && errors.email}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MailIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Field
-                as={TextField}
-                name="phone"
-                label="Phone"
-                fullWidth
-                error={touched.phone && Boolean(errors.phone)}
-                helperText={touched.phone && errors.phone}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PhoneIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <TextField
-                name="notes"
-                label="Notes (one per line)"
-                multiline
-                rows={4}
-                fullWidth
-                value={Array.isArray(values.notes) ? values.notes.join('\n') : ''}
-                onChange={(e) => {
-                  // Split by newlines and filter empty lines
-                  const notesArray = e.target.value
-                    .split('\n')
-                    .filter(note => note.trim() !== '');
-                  setFieldValue('notes', notesArray);
-                }}
-                error={touched.notes && Boolean(errors.notes)}
-                helperText={touched.notes && errors.notes ? 
-                  (errors.notes as string) : 
-                  "Enter each note on a separate line"}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <NotesIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-            <DialogActions>
-              <Button onClick={handleCloseDialog}>Cancel</Button>
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? <CircularProgress size={24} /> : dialogType === 'create' ? 'Create' : 'Save'}
-              </Button>
-            </DialogActions>
-          </Form>
-        )}
-      </Formik>
+      <div className="flex h-screen w-screen items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-t-2 border-primary rounded-full"></div>
+      </div>
     );
-  };
+  }
 
-  const renderClientTable = () => (
-    <>
-      <TableContainer component={Paper} sx={{ mb: 2 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell width="30%">Name</TableCell>
-              <TableCell width="20%">Contact</TableCell>
-              <TableCell width="15%">Last Appointment</TableCell>
-              <TableCell width="10%" align="center">Total Visits</TableCell>
-              <TableCell width="15%" align="right">Total Spent</TableCell>
-              <TableCell width="10%" align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredClients && filteredClients.length > 0 ? (
-              filteredClients
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((client) => (
-                  <React.Fragment key={client.id || `client-${Math.random()}`}>
-                    <TableRow
-                      hover
-                      sx={{
-                        '&:last-child td, &:last-child th': { border: 0 },
-                        backgroundColor: client.isVip ? 'rgba(255, 215, 0, 0.1)' : 'inherit'
-                      }}
-                    >
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                            {client.name || 'Unknown'}
-                          </Typography>
-                          {client.isVip && (
-                            <Tooltip title="VIP Client">
-                              <StarIcon
-                                fontSize="small"
-                                sx={{ color: 'gold', ml: 1 }}
-                              />
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" display="block">
-                          {client.email || 'No email'}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">
-                          {client.phone || 'No phone'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(client.lastAppointment)}</TableCell>
-                      <TableCell align="center">{client.appointmentCount}</TableCell>
-                      <TableCell align="right">${client.totalSpent?.toFixed(2) || 'N/A'}</TableCell>
-                      <TableCell align="center">
-                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                          <Tooltip title="View Appointments">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleExpandClient(client.id)}
-                            >
-                              {expandedClientId === client.id ? (
-                                <ExpandLessIcon fontSize="small" />
-                              ) : (
-                                <ExpandMoreIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Edit Client">
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleOpenDialog('edit', client)}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Client">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteClick(client)}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        sx={{ p: 0, borderBottom: expandedClientId === client.id ? undefined : 'none' }}
-                      >
-                        <Collapse in={expandedClientId === client.id} timeout="auto" unmountOnExit>
-                          <Box sx={{ p: 2, backgroundColor: 'action.hover' }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                              <Typography variant="subtitle2" gutterBottom component="div">
-                                Appointment History
-                              </Typography>
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    size="small"
-                                    checked={client.isVip}
-                                    onChange={() => handleToggleVipStatus(client)}
-                                  />
-                                }
-                                label={<Typography variant="body2">VIP Status</Typography>}
-                              />
-                            </Box>
-                            {client.appointments && client.appointments.length > 0 ? (
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Date & Time</TableCell>
-                                    <TableCell>Service</TableCell>
-                                    <TableCell>Price</TableCell>
-                                    <TableCell align="right">Status</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {client.appointments.map((appointment) => (
-                                    <TableRow key={appointment.id}>
-                                      <TableCell>
-                                        {formatDateTime(appointment.date, appointment.startTime)}
-                                      </TableCell>
-                                      <TableCell>{appointment.serviceName}</TableCell>
-                                      <TableCell>${appointment.price.toFixed(2)}</TableCell>
-                                      <TableCell align="right">
-                                        <Chip
-                                          size="small"
-                                          label={appointment.status}
-                                          color={
-                                            appointment.status === 'COMPLETED' ? 'success' :
-                                            appointment.status === 'SCHEDULED' ? 'primary' :
-                                            'error'
-                                          }
-                                        />
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary">
-                                No appointment history available.
-                              </Typography>
-                            )}
-                            {client.notes && (
-                              <Box sx={{ mt: 2 }}>
-                                <Typography variant="subtitle2" gutterBottom>
-                                  Notes
-                                </Typography>
-                                <Paper 
-                                  variant="outlined" 
-                                  sx={{ p: 1.5, backgroundColor: 'background.paper' }}
-                                >
-                                  <Typography variant="body2">{client.notes.join('\n')}</Typography>
-                                </Paper>
-                              </Box>
-                            )}
-                          </Box>
-                        </Collapse>
-                      </TableCell>
-                    </TableRow>
-                  </React.Fragment>
-                ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                  <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <PersonOffIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h6" gutterBottom>
-                      No Clients Found
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {error ? 
-                        `Error: ${error}` : 
-                        (loading ? 
-                          'Loading clients...' : 
-                          'No clients match your search criteria or there are no clients in the system yet.'
-                        )
-                      }
-                    </Typography>
-                    <Button 
-                      variant="contained" 
-                      startIcon={<PersonAddIcon />}
-                      onClick={() => handleOpenDialog('create', null)}
-                    >
-                      Add Your First Client
-                    </Button>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        component="div"
-        count={filteredClients.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[5, 10, 25]}
-      />
-    </>
-  );
-
-  const renderClientCards = () => (
-    <>
-      <Grid container spacing={3} sx={{ mb: 2 }}>
-        {filteredClients
-          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-          .map((client) => (
-            <Grid item xs={12} sm={6} md={4} key={client.id}>
-              <Card 
-                elevation={0} 
-                sx={{ 
-                  borderRadius: 2, 
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  backgroundColor: client.isVip ? 'rgba(255, 215, 0, 0.05)' : 'inherit',
-                  position: 'relative'
-                }}
-              >
-                {client.isVip && (
-                  <StarIcon 
-                    color="warning" 
-                    sx={{ 
-                      position: 'absolute', 
-                      top: 8, 
-                      right: 8, 
-                      fontSize: 20 
-                    }} 
-                  />
-                )}
-                <CardContent>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" component="div">
-                      {client.name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      <MailIcon 
-                        fontSize="small" 
-                        color="action" 
-                        sx={{ mr: 1 }} 
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        {client.email}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                      <PhoneIcon 
-                        fontSize="small" 
-                        color="action" 
-                        sx={{ mr: 1 }} 
-                      />
-                      <Typography variant="body2" color="text.secondary">
-                        {client.phone}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Divider sx={{ my: 1.5 }} />
-                  
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Total Visits
-                      </Typography>
-                      <Typography variant="body2" fontWeight="medium">
-                        {client.appointmentCount}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" align="right" display="block">
-                        Total Spent
-                      </Typography>
-                      <Typography variant="body2" fontWeight="medium">
-                        ${client.totalSpent?.toFixed(2) || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      Last Appointment
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatDate(client.lastAppointment)}
-                    </Typography>
-                  </Box>
-                  
-                  {client.notes && (
-                    <>
-                      <Divider sx={{ my: 1.5 }} />
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" display="flex" alignItems="center">
-                          <NotesIcon fontSize="small" sx={{ mr: 0.5 }} /> Notes
-                        </Typography>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          {client.notes.join('\n')}
-                        </Typography>
-                      </Box>
-                    </>
-                  )}
-                  
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-                    <Box>
-                      <Tooltip title="View Appointments">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleExpandClient(client.id)}
-                        >
-                          <CalendarIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Toggle VIP Status">
-                        <IconButton 
-                          size="small" 
-                          color={client.isVip ? "warning" : "default"}
-                          onClick={() => handleToggleVipStatus(client)}
-                        >
-                          {client.isVip ? <StarIcon fontSize="small" /> : <StarOutlineIcon fontSize="small" />}
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                    <Box>
-                      <Tooltip title="Edit Client">
-                        <IconButton 
-                          size="small" 
-                          color="primary"
-                          onClick={() => handleOpenDialog('edit', client)}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Client">
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleDeleteClick(client)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        {filteredClients.length === 0 && (
-          <Grid item xs={12}>
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body2" color="text.secondary">
-                No clients found matching your search.
-              </Typography>
-            </Box>
-          </Grid>
-        )}
-      </Grid>
-      <TablePagination
-        component="div"
-        count={filteredClients.length}
-        page={page}
-        onPageChange={handleChangePage}
-        rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        rowsPerPageOptions={[6, 12, 24]}
-      />
-    </>
-  );
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
 
   return (
-    <MainLayout>
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1">
-            Clients
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog('create')}
-          >
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+            <p className="text-muted-foreground">
+              Manage your client database
+            </p>
+          </div>
+          <Button className="sm:w-auto w-full">
+            <Plus className="mr-2 h-4 w-4" />
             Add Client
           </Button>
-        </Box>
+        </div>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tabs 
-              value={filterValue} 
-              onChange={(_, newValue) => setFilterValue(newValue)}
-            >
-              <Tab value="all" label="All Clients" />
-              <Tab 
-                value="vip" 
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <StarIcon fontSize="small" />
-                    <span>VIP</span>
-                  </Box>
-                } 
-              />
-            </Tabs>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Tabs
-                value={viewMode}
-                onChange={(_, newValue) => setViewMode(newValue)}
-              >
-                <Tab value="table" label="Table View" />
-                <Tab value="cards" label="Card View" />
-              </Tabs>
-            </Box>
-          </Box>
-          <TextField
-            placeholder="Search clients..."
-            variant="outlined"
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: 250 }}
-          />
-        </Box>
-
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', my: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : viewMode === 'table' ? (
-          renderClientTable()
-        ) : (
-          renderClientCards()
-        )}
-      </Box>
-
-      {/* Client Form Dialog */}
-      <Dialog 
-        open={openDialog} 
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {dialogType === 'create' ? 'Add New Client' : 'Edit Client'}
-        </DialogTitle>
-        <DialogContent dividers>
-          {renderClientForm()}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog 
-        open={deleteConfirmOpen} 
-        onClose={() => setDeleteConfirmOpen(false)}
-      >
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete {selectedClient?.name}? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </MainLayout>
+        <Card>
+          <CardHeader className="px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <CardTitle>Client List</CardTitle>
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search clients..."
+                  className="w-full sm:w-[300px] pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+            <CardDescription>
+              {filteredClients.length} clients found
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Last Appointment</TableHead>
+                  <TableHead className="text-right">Total Spent</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedClients.length > 0 ? (
+                  paginatedClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell className="font-medium">{client.name}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <div className="flex items-center text-sm">
+                            <Mail className="mr-1 h-3 w-3" />
+                            <span>{client.email}</span>
+                          </div>
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Phone className="mr-1 h-3 w-3" />
+                            <span>{client.phone}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Calendar className="mr-1 h-3 w-3" />
+                          <span>{format(client.lastAppointment, 'PP')}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {client.totalAppointments} appointments
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${client.totalSpent}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Calendar className="mr-2 h-4 w-4" />
+                              <span>Book Appointment</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit Client</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              <Trash className="mr-2 h-4 w-4" />
+                              <span>Delete</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-40 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <Search className="mb-2 h-10 w-10 text-muted-foreground" />
+                        <h3 className="text-lg font-medium">No clients found</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Try adjusting your search to find what you're looking for.
+                        </p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+            
+            {filteredClients.length > itemsPerPage && (
+              <div className="px-6 py-4 border-t">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#" 
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                          e.preventDefault();
+                          if (page > 1) setPage(page - 1);
+                        }}
+                        className={page === 1 ? "pointer-events-none opacity-50" : ""}
+                      />
+                    </PaginationItem>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(pageNum => 
+                        pageNum === 1 || 
+                        pageNum === totalPages || 
+                        (pageNum >= page - 1 && pageNum <= page + 1)
+                      )
+                      .map((pageNum, i, arr) => {
+                        // Check if we need to add an ellipsis
+                        if (i > 0 && pageNum - arr[i - 1] > 1) {
+                          return (
+                            <React.Fragment key={`ellipsis-${pageNum}`}>
+                              <PaginationItem>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                              <PaginationItem>
+                                <PaginationLink 
+                                  href="#" 
+                                  onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                    e.preventDefault();
+                                    setPage(pageNum);
+                                  }}
+                                  isActive={pageNum === page}
+                                >
+                                  {pageNum}
+                                </PaginationLink>
+                              </PaginationItem>
+                            </React.Fragment>
+                          );
+                        }
+                        return (
+                          <PaginationItem key={pageNum}>
+                            <PaginationLink 
+                              href="#" 
+                              onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                e.preventDefault();
+                                setPage(pageNum);
+                              }}
+                              isActive={pageNum === page}
+                            >
+                              {pageNum}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#" 
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                          e.preventDefault();
+                          if (page < totalPages) setPage(page + 1);
+                        }}
+                        className={page === totalPages ? "pointer-events-none opacity-50" : ""}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
   );
 } 

@@ -3,6 +3,11 @@ import { authenticate } from '../middleware/authMiddleware.js';
 import { validate } from '../middleware/validationMiddleware.js';
 import { createAppointmentSchema, updateAppointmentSchema, idParamSchema } from '../utils/validationUtils.js';
 import * as appointmentController from '../controllers/appointmentController.js';
+import { 
+  checkAppointmentConflicts, 
+  checkServiceAvailability, 
+  checkUpdateConflicts 
+} from '../middleware/appointmentMiddleware.js';
 
 const router = express.Router();
 
@@ -31,12 +36,18 @@ router.get('/client/:clientId', appointmentController.getClientAppointmentHistor
 router.get('/:id', validate(idParamSchema, 'params'), appointmentController.getAppointmentById);
 
 // POST /api/appointments - Създай нов appointment
-router.post('/', validate(createAppointmentSchema), appointmentController.createAppointment);
+router.post('/',
+  validate(createAppointmentSchema),
+  checkServiceAvailability,
+  checkAppointmentConflicts,
+  appointmentController.createAppointment
+);
 
 // PUT /api/appointments/:id - Update an appointment
 router.put('/:id', 
   validate(idParamSchema, 'params'),
   validate(updateAppointmentSchema),
+  checkUpdateConflicts,
   appointmentController.updateAppointment
 );
 

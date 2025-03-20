@@ -1,206 +1,119 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
-import { Formik, Form, Field, ErrorMessage } from 'formik';
-import * as Yup from 'yup';
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-  Paper,
-  Container,
-  Grid,
-  Alert,
-  InputAdornment,
-  IconButton,
-  CircularProgress,
-  Divider
-} from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  LockOutlined as LockIcon
-} from '@mui/icons-material';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
 import { useAuth } from '../context/AuthContext';
-import { formatErrorMessage } from '../utils/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { motion } from 'framer-motion';
 
-// Define validation schema
-const validationSchema = Yup.object({
-  email: Yup.string()
-    .email('Enter a valid email')
-    .required('Email is required'),
-  password: Yup.string()
-    .min(8, 'Password should be of minimum 8 characters length')
-    .required('Password is required')
+// Form validation schema
+const loginSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-export default function Login() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const { login, error: authError, isAuthenticated, isLoading, clearError } = useAuth();
+type LoginFormValues = z.infer<typeof loginSchema>;
 
-  // Check for redirects and messages
-  useEffect(() => {
-    // If already authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      router.push('/dashboard');
-      return;
-    }
+export default function LoginPage() {
+  const { login, loading } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
-    // Check for query params (e.g. ?registered=true)
-    const registered = searchParams.get('registered');
-    const reset = searchParams.get('reset');
-    
-    if (registered === 'true') {
-      alert('Registration successful! You can now log in with your credentials.');
-    }
-    
-    if (reset === 'true') {
-      alert('Password reset successful! You can now log in with your new password.');
-    }
-  }, [isAuthenticated, router, searchParams]);
+  // Initialize form
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
 
-  // Clear auth errors when component unmounts
-  useEffect(() => {
-    return () => {
-      clearError();
-    };
-  }, [clearError]);
-
-  // Update local error state when auth error changes
-  useEffect(() => {
-    if (authError) {
-      setLoginError(authError);
-    }
-  }, [authError]);
-
-  const handleSubmit = async (values: { email: string; password: string }, { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }) => {
-    setLoginError('');
-    
+  // Handle form submission
+  const onSubmit = async (values: LoginFormValues) => {
+    setError(null);
     try {
-      console.log('Login attempt:', values.email);
-      await login(values.email, values.password);
-      
-      // No need to redirect here, the AuthContext will handle it
-    } catch (err) {
-      console.error('Login error:', err);
-      setLoginError(formatErrorMessage(err) || 'An unexpected error occurred');
-    } finally {
-      setSubmitting(false);
+      await login(values);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
     }
-  };
-
-  const handleTogglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box my={4} display="flex" flexDirection="column" alignItems="center">
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          {/* Sign in header */}
-          <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
-            <LockIcon fontSize="large" color="primary" sx={{ mb: 1 }} />
-            <Typography component="h1" variant="h5">
-              Sign in
-            </Typography>
-          </Box>
-
-          {/* Error alert */}
-          {loginError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {loginError}
-            </Alert>
-          )}
-
-          <Formik
-            initialValues={{ email: '', password: '' }}
-            validationSchema={validationSchema}
-            onSubmit={handleSubmit}
-          >
-            {({ isSubmitting, errors, touched }) => (
-              <Form>
-                <Field
-                  as={TextField}
-                  margin="normal"
-                  fullWidth
-                  id="email"
-                  label="Email Address"
-                  name="email"
-                  autoComplete="email"
-                  autoFocus
-                  error={touched.email && Boolean(errors.email)}
-                  helperText={touched.email && errors.email}
-                />
-                <Field
-                  as={TextField}
-                  margin="normal"
-                  fullWidth
-                  name="password"
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  autoComplete="current-password"
-                  error={touched.password && Boolean(errors.password)}
-                  helperText={touched.password && errors.password}
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle password visibility"
-                          onClick={handleTogglePasswordVisibility}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
-                />
-                <Box mt={2} mb={2} textAlign="right">
-                  <Link href="/forgot-password" style={{ textDecoration: 'none' }}>
-                    <Typography variant="body2" color="primary">
-                      Forgot password?
-                    </Typography>
-                  </Link>
-                </Box>
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  disabled={isSubmitting || isLoading}
-                  sx={{ mt: 2, mb: 2 }}
-                >
-                  {(isSubmitting || isLoading) ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    'Sign In'
-                  )}
-                </Button>
-                <Divider sx={{ my: 2 }} />
-                <Grid container justifyContent="center">
-                  <Grid item>
-                    <Typography variant="body2">
-                      Don't have an account?{' '}
-                      <Link href="/signup" style={{ textDecoration: 'none' }}>
-                        <Typography component="span" variant="body2" color="primary">
-                          Sign up
-                        </Typography>
-                      </Link>
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </Form>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 p-4">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md"
+      >
+        <Card className="shadow-xl border-t-4 border-t-primary">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Welcome Back</CardTitle>
+            <CardDescription className="text-center">
+              Enter your email and password to sign in to your account
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
-          </Formik>
-        </Paper>
-      </Box>
-    </Container>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="your.email@example.com" type="email" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input placeholder="••••••••" type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </Button>
+              </form>
+            </Form>
+            <div className="mt-4 text-center text-sm">
+              <Link href="/forgot-password" className="text-primary hover:underline">
+                Forgot your password?
+              </Link>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <div className="mx-auto text-sm text-gray-500">
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="text-primary font-medium hover:underline">
+                Sign up
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
+      </motion.div>
+    </div>
   );
 } 

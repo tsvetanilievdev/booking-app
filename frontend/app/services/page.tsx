@@ -1,602 +1,460 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  CardActions,
-  Grid,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormHelperText,
-  CircularProgress,
-  Alert,
-  IconButton,
-  Tooltip,
-  Switch,
-  FormControlLabel,
-  Divider,
-  InputAdornment
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  AccessTime as TimeIcon,
-  AttachMoney as MoneyIcon
-} from '@mui/icons-material';
-import { Formik, Form, Field } from 'formik';
-import * as Yup from 'yup';
-import MainLayout from '../components/layout/MainLayout';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../context/AuthContext';
+import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { 
-  getServices, 
-  createService, 
-  updateService, 
-  deleteService, 
-  toggleServiceAvailability, 
-  Service,
-  CreateServiceData,
-  UpdateServiceData,
-  ServiceAvailabilityData
-} from '../api/serviceApi';
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { Clock, Search, Plus, Grid3X3, AlignLeft, MoreHorizontal, Edit, Trash, Calendar, Check, X } from 'lucide-react';
 
-// Define days of the week
-const daysOfWeek = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' }
+// Mock service categories
+const categories = [
+  { id: 1, name: 'Haircuts', count: 5 },
+  { id: 2, name: 'Coloring', count: 3 },
+  { id: 3, name: 'Spa', count: 4 },
+  { id: 4, name: 'Manicure', count: 2 },
+  { id: 5, name: 'Pedicure', count: 2 },
 ];
 
-// Define hours for the time picker
-const hours = Array.from({ length: 24 }, (_, i) => ({
-  value: i * 100, // Format as 24-hour (e.g. 900 for 9:00 AM)
-  label: i < 12 
-    ? `${i === 0 ? 12 : i}:00 AM` 
-    : `${i === 12 ? 12 : i - 12}:00 PM`
-}));
+// Mock data for services
+const servicesData = [
+  {
+    id: 1,
+    name: 'Men\'s Haircut',
+    description: 'Professional haircut service for men including washing and styling.',
+    duration: 30,
+    price: 40,
+    category: 'Haircuts',
+    popular: true,
+  },
+  {
+    id: 2,
+    name: 'Women\'s Haircut',
+    description: 'Complete haircut service for women including washing, cutting, and styling.',
+    duration: 45,
+    price: 65,
+    category: 'Haircuts',
+    popular: true,
+  },
+  {
+    id: 3,
+    name: 'Hair Coloring',
+    description: 'Full hair coloring service with premium products.',
+    duration: 120,
+    price: 95,
+    category: 'Coloring',
+    popular: true,
+  },
+  {
+    id: 4,
+    name: 'Highlights',
+    description: 'Partial or full highlights to add dimension to your hair.',
+    duration: 90,
+    price: 120,
+    category: 'Coloring',
+    popular: false,
+  },
+  {
+    id: 5,
+    name: 'Basic Manicure',
+    description: 'Nail trimming, shaping, cuticle care, and polish application.',
+    duration: 30,
+    price: 35,
+    category: 'Manicure',
+    popular: false,
+  },
+  {
+    id: 6,
+    name: 'Full Facial',
+    description: 'Deep cleansing facial treatment with massage and mask.',
+    duration: 60,
+    price: 80,
+    category: 'Spa',
+    popular: false,
+  },
+  {
+    id: 7,
+    name: 'Massage Therapy',
+    description: 'Full body massage to release tension and promote relaxation.',
+    duration: 60,
+    price: 90,
+    category: 'Spa',
+    popular: true,
+  },
+  {
+    id: 8,
+    name: 'Basic Pedicure',
+    description: 'Foot soak, nail trimming, cuticle care, and polish application.',
+    duration: 45,
+    price: 45,
+    category: 'Pedicure',
+    popular: false,
+  },
+];
 
-// Validation schema for service form
-const ServiceSchema = Yup.object().shape({
-  name: Yup.string().required('Name is required'),
-  duration: Yup.number()
-    .required('Duration is required')
-    .min(1, 'Duration must be at least 1 minute')
-    .max(480, 'Duration cannot exceed 8 hours'),
-  price: Yup.number()
-    .required('Price is required')
-    .min(0, 'Price cannot be negative'),
-  isAvailable: Yup.boolean(),
-  availableDays: Yup.array()
-    .of(Yup.number().min(0).max(6))
-    .min(1, 'Select at least one day')
-    .required('Available days are required'),
-  availableTimeStart: Yup.number()
-    .required('Start time is required'),
-  availableTimeEnd: Yup.number()
-    .required('End time is required')
-    .test(
-      'is-greater-than-start',
-      'End time must be after start time',
-      function(value) {
-        const { availableTimeStart } = this.parent;
-        return value > availableTimeStart;
-      }
-    )
-});
-
-export default function Services() {
-  const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingService, setEditingService] = useState<Service | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+export default function ServicesPage() {
+  const { user, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
+  // New service form state
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newService, setNewService] = useState({
+    name: '',
+    description: '',
+    duration: '',
+    price: '',
+    category: '',
+    popular: false,
+  });
+  
+  // Filter services based on search query and selected category
+  const filteredServices = servicesData.filter(service => {
+    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || service.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+  
+  // Handle form submit for new service
+  const handleAddService = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Here you would typically add the new service to your backend
+    console.log('Adding new service:', newService);
+    setIsAddDialogOpen(false);
+    // Reset form
+    setNewService({
+      name: '',
+      description: '',
+      duration: '',
+      price: '',
+      category: '',
+      popular: false,
+    });
+  };
+
   useEffect(() => {
-    const fetchServices = async () => {
-      setLoading(true);
-      try {
-        const response = await getServices();
-        if (response.data) {
-          setServices(response.data);
-        } else {
-          setServices([]);
-        }
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching services:', err);
-        setError('Failed to load services. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchServices();
-  }, []);
-  
-  const handleOpenDialog = (service: Service | null = null) => {
-    setEditingService(service);
-    setIsEditMode(!!service);
-    setOpenDialog(true);
-  };
-  
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditingService(null);
-    setIsEditMode(false);
-  };
-  
-  const handleSubmit = async (values: any, { setSubmitting }: any) => {
-    try {
-      setSubmitting(true);
-      let result: { data: Service | null; error?: string } | undefined;
-      
-      if (isEditMode && editingService) {
-        // Update existing service
-        const updateData: UpdateServiceData = {
-          name: values.name,
-          duration: values.duration,
-          price: values.price,
-          isAvailable: values.isAvailable,
-          availableDays: values.availableDays,
-          availableTimeStart: values.availableTimeStart,
-          availableTimeEnd: values.availableTimeEnd
-        };
-        
-        result = await updateService(editingService.id, updateData);
-        
-        if (result && result.data) {
-          // Update service in the list
-          setServices(prevServices => 
-            prevServices.map(service => 
-              service.id === editingService.id ? result!.data as Service : service
-            )
-          );
-          setSuccess('Service updated successfully!');
-          handleCloseDialog();
-        } else {
-          throw new Error(result?.error || 'Failed to update service');
-        }
-      } else {
-        // Create new service
-        const createData: CreateServiceData = {
-          name: values.name,
-          duration: values.duration,
-          price: values.price,
-          isAvailable: values.isAvailable,
-          availableDays: values.availableDays,
-          availableTimeStart: values.availableTimeStart,
-          availableTimeEnd: values.availableTimeEnd
-        };
-        
-        result = await createService(createData);
-        
-        if (result && result.data) {
-          // Add new service to the list
-          setServices(prevServices => [...prevServices, result!.data as Service]);
-          setSuccess('Service created successfully!');
-          handleCloseDialog();
-        } else {
-          // Check if the error message contains information about description field
-          if (result?.error && result.error.includes('description')) {
-            setError('The backend does not support the description field. Please contact your administrator.');
-          } else {
-            throw new Error(result?.error || 'Failed to create service');
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error saving service:', err);
-      let errorMessage = err instanceof Error ? err.message : 'Failed to save service';
-      
-      // Check for specific backend error patterns
-      if (typeof errorMessage === 'string' && 
-          (errorMessage.includes('description') || 
-           errorMessage.includes('Unknown argument'))) {
-        errorMessage = 'The service schema in the backend does not match the frontend. The description field is not supported.';
-      } else if (errorMessage.includes('Notes must be an array of strings')) {
-        errorMessage = 'Notes must be provided as an array of strings. Please enter notes in the correct format.';
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setSubmitting(false);
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
     }
-  };
-  
-  const handleToggleAvailability = async (id: string, isAvailable: boolean) => {
-    try {
-      const result = await toggleServiceAvailability(id, isAvailable);
-      
-      if (result.data) {
-        // Update service availability in the list
-        setServices(prevServices => 
-          prevServices.map(service => 
-            service.id === id ? { ...service, isAvailable } : service
-          )
-        );
-        setSuccess(`Service ${isAvailable ? 'enabled' : 'disabled'} successfully!`);
-      } else {
-        throw new Error(result.error || 'Failed to toggle service availability');
-      }
-    } catch (err) {
-      console.error('Error toggling service availability:', err);
-      setError(err instanceof Error ? err.message : 'Failed to toggle service availability');
-    }
-  };
-  
-  const handleDeleteClick = (id: string) => {
-    setServiceToDelete(id);
-    setDeleteDialogOpen(true);
-  };
-  
-  const handleDeleteConfirm = async () => {
-    if (!serviceToDelete) return;
-    
-    setSubmitting(true);
-    try {
-      const result = await deleteService(serviceToDelete);
-      
-      if (result.success) {
-        // Remove service from the list
-        setServices(prevServices => 
-          prevServices.filter(service => service.id !== serviceToDelete)
-        );
-        setSuccess('Service deleted successfully!');
-      } else {
-        throw new Error(result.error || 'Failed to delete service');
-      }
-    } catch (err) {
-      console.error('Error deleting service:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete service');
-    } finally {
-      setSubmitting(false);
-      setDeleteDialogOpen(false);
-      setServiceToDelete(null);
-    }
-  };
-  
-  const formatTime = (timeValue: number) => {
-    const hours = Math.floor(timeValue / 100);
-    const minutes = timeValue % 100;
-    const period = hours < 12 ? 'AM' : 'PM';
-    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
-  };
-  
-  const formatDays = (days: number[]) => {
-    return days.map(day => daysOfWeek.find(d => d.value === day)?.label.substring(0, 3)).join(', ');
-  };
-  
+  }, [loading, isAuthenticated, router]);
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-t-2 border-primary rounded-full"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
+
   return (
-    <MainLayout>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" component="h1">
-          Services
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Add Service
-        </Button>
-      </Box>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 4 }}>
-          {error}
-        </Alert>
-      )}
-
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', my: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {services.map((service) => (
-            <Grid item xs={12} sm={6} md={4} key={service.id}>
-              <Card 
-                elevation={0} 
-                sx={{ 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  opacity: service.isAvailable ? 1 : 0.7
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Typography variant="h6" component="h2">
-                      {service.name}
-                    </Typography>
-                    <Chip 
-                      label={service.isAvailable ? 'Available' : 'Unavailable'} 
-                      color={service.isAvailable ? 'success' : 'error'} 
-                      size="small" 
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Services</h1>
+            <p className="text-muted-foreground">
+              Manage your service offerings and pricing
+            </p>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="sm:w-auto w-full">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Service
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Add New Service</DialogTitle>
+                <DialogDescription>
+                  Create a new service for your clients to book.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAddService}>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Service Name</Label>
+                    <Input 
+                      id="name" 
+                      value={newService.name}
+                      onChange={(e) => setNewService({...newService, name: e.target.value})}
+                      placeholder="e.g. Men's Haircut"
+                      required
                     />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {service.description}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <TimeIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-                    <Typography variant="body2">
-                      {service.duration} minutes
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <MoneyIcon fontSize="small" color="action" sx={{ mr: 1 }} />
-                    <Typography variant="body2">
-                      ${service.price.toFixed(2)}
-                    </Typography>
-                  </Box>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    Available: {formatDays(service.availableDays)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Hours: {formatTime(service.availableTimeStart)} - {formatTime(service.availableTimeEnd)}
-                  </Typography>
-                  <Divider sx={{ my: 2 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Bookings: {service.bookingCount}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Revenue: ${service.revenue?.toFixed(2) || '0.00'}
-                    </Typography>
-                  </Box>
-                </CardContent>
-                <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-                  <Box>
-                    <Tooltip title="Edit">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleOpenDialog(service)}
-                        color="primary"
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleDeleteClick(service.id)}
-                        color="error"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={service.isAvailable}
-                        onChange={(e) => handleToggleAvailability(service.id, e.target.checked)}
-                        color="primary"
-                        size="small"
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea 
+                      id="description" 
+                      value={newService.description}
+                      onChange={(e) => setNewService({...newService, description: e.target.value})}
+                      placeholder="Describe what this service includes..."
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="duration">Duration (minutes)</Label>
+                      <Input 
+                        id="duration" 
+                        type="number"
+                        value={newService.duration}
+                        onChange={(e) => setNewService({...newService, duration: e.target.value})}
+                        placeholder="30"
+                        min="1"
+                        required
                       />
-                    }
-                    label={<Typography variant="body2">Available</Typography>}
-                  />
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="price">Price ($)</Label>
+                      <Input 
+                        id="price" 
+                        type="number"
+                        value={newService.price}
+                        onChange={(e) => setNewService({...newService, price: e.target.value})}
+                        placeholder="50"
+                        min="0"
+                        step=".01"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="category">Category</Label>
+                    <select
+                      id="category"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newService.category}
+                      onChange={(e) => setNewService({...newService, category: e.target.value})}
+                      required
+                    >
+                      <option value="" disabled>Select a category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.name}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="popular"
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                      checked={newService.popular}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewService({...newService, popular: e.target.checked})}
+                    />
+                    <Label htmlFor="popular">Mark as popular service</Label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Add Service</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-      {/* Service Form Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingService ? 'Edit Service' : 'Add New Service'}
-        </DialogTitle>
-        <Formik
-          initialValues={
-            editingService || {
-              name: '',
-              duration: 30,
-              price: 0,
-              isAvailable: true,
-              availableDays: [1, 2, 3, 4, 5],
-              availableTimeStart: 900,
-              availableTimeEnd: 1700
-            }
-          }
-          validationSchema={ServiceSchema}
-          onSubmit={handleSubmit}
-        >
-          {({ isSubmitting, errors, touched, values, setFieldValue }) => (
-            <Form>
-              <DialogContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="name"
-                      label="Service Name"
-                      error={touched.name && Boolean(errors.name)}
-                      helperText={touched.name && errors.name}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="duration"
-                      label="Duration (minutes)"
-                      type="number"
-                      InputProps={{
-                        endAdornment: <InputAdornment position="end">min</InputAdornment>,
-                      }}
-                      error={touched.duration && Boolean(errors.duration)}
-                      helperText={touched.duration && errors.duration}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Field
-                      as={TextField}
-                      fullWidth
-                      name="price"
-                      label="Price"
-                      type="number"
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                      }}
-                      error={touched.price && Boolean(errors.price)}
-                      helperText={touched.price && errors.price}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl 
-                      fullWidth 
-                      error={touched.availableDays && Boolean(errors.availableDays)}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Categories sidebar */}
+          <div className="md:w-64 w-full">
+            <Card>
+              <CardHeader>
+                <CardTitle>Categories</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="space-y-1 p-2">
+                  <button
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md ${!selectedCategory ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                    onClick={() => setSelectedCategory(null)}
+                  >
+                    <span>All Services</span>
+                    <Badge variant="outline">{servicesData.length}</Badge>
+                  </button>
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-md ${selectedCategory === category.name ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                      onClick={() => setSelectedCategory(category.name)}
                     >
-                      <InputLabel id="available-days-label">Available Days</InputLabel>
-                      <Select
-                        labelId="available-days-label"
-                        multiple
-                        value={values.availableDays}
-                        onChange={(e) => setFieldValue('availableDays', e.target.value)}
-                        label="Available Days"
-                        renderValue={(selected) => (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {(selected as number[]).map((value) => (
-                              <Chip 
-                                key={value} 
-                                label={daysOfWeek.find(day => day.value === value)?.label} 
-                                size="small" 
-                              />
-                            ))}
-                          </Box>
-                        )}
-                      >
-                        {daysOfWeek.map((day) => (
-                          <MenuItem key={day.value} value={day.value}>
-                            {day.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {touched.availableDays && errors.availableDays && (
-                        <FormHelperText>{errors.availableDays as string}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl 
-                      fullWidth 
-                      error={touched.availableTimeStart && Boolean(errors.availableTimeStart)}
-                    >
-                      <InputLabel id="start-time-label">Start Time</InputLabel>
-                      <Select
-                        labelId="start-time-label"
-                        value={values.availableTimeStart}
-                        onChange={(e) => setFieldValue('availableTimeStart', e.target.value)}
-                        label="Start Time"
-                      >
-                        {hours.map((time) => (
-                          <MenuItem key={time.value} value={time.value}>
-                            {time.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {touched.availableTimeStart && errors.availableTimeStart && (
-                        <FormHelperText>{errors.availableTimeStart as string}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl 
-                      fullWidth 
-                      error={touched.availableTimeEnd && Boolean(errors.availableTimeEnd)}
-                    >
-                      <InputLabel id="end-time-label">End Time</InputLabel>
-                      <Select
-                        labelId="end-time-label"
-                        value={values.availableTimeEnd}
-                        onChange={(e) => setFieldValue('availableTimeEnd', e.target.value)}
-                        label="End Time"
-                      >
-                        {hours.map((time) => (
-                          <MenuItem key={time.value} value={time.value}>
-                            {time.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {touched.availableTimeEnd && errors.availableTimeEnd && (
-                        <FormHelperText>{errors.availableTimeEnd as string}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={values.isAvailable}
-                          onChange={(e) => setFieldValue('isAvailable', e.target.checked)}
-                          color="primary"
-                        />
-                      }
-                      label="Service is available for booking"
-                    />
-                  </Grid>
-                </Grid>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={handleCloseDialog}>Cancel</Button>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? <CircularProgress size={24} /> : 'Save'}
+                      <span>{category.name}</span>
+                      <Badge variant="outline">{category.count}</Badge>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className="border-t p-4">
+                <Button variant="outline" size="sm" className="w-full">
+                  <Plus className="mr-1 h-3 w-3" />
+                  Add Category
                 </Button>
-              </DialogActions>
-            </Form>
-          )}
-        </Formik>
-      </Dialog>
+              </CardFooter>
+            </Card>
+          </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this service? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error">
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </MainLayout>
+          {/* Main content */}
+          <div className="flex-1">
+            <Card>
+              <CardHeader className="px-6 py-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <CardTitle>
+                    {selectedCategory || 'All Services'} ({filteredServices.length})
+                  </CardTitle>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-auto">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search services..."
+                        className="w-full sm:w-[250px] pl-8"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center border rounded-md">
+                      <button
+                        className={`p-2 ${viewMode === 'grid' ? 'bg-muted' : ''}`}
+                        onClick={() => setViewMode('grid')}
+                        title="Grid view"
+                      >
+                        <Grid3X3 className="h-4 w-4" />
+                      </button>
+                      <button
+                        className={`p-2 ${viewMode === 'list' ? 'bg-muted' : ''}`}
+                        onClick={() => setViewMode('list')}
+                        title="List view"
+                      >
+                        <AlignLeft className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                {filteredServices.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Search className="mb-2 h-10 w-10 text-muted-foreground" />
+                    <h3 className="text-lg font-medium">No services found</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Try adjusting your search or category filter.
+                    </p>
+                  </div>
+                ) : viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredServices.map((service) => (
+                      <Card key={service.id} className="overflow-hidden">
+                        {service.popular && (
+                          <div className="bg-primary text-primary-foreground text-xs py-0.5 px-2 absolute right-2 top-2 rounded-sm">
+                            Popular
+                          </div>
+                        )}
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">{service.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">
+                            {service.description}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pb-2">
+                          <div className="flex items-center gap-1 text-sm mb-1">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{service.duration} min</span>
+                          </div>
+                          <div className="font-medium text-lg">${service.price}</div>
+                        </CardContent>
+                        <CardFooter className="flex justify-between border-t pt-4 pb-4">
+                          <Badge variant="outline" className="mr-2">
+                            {service.category}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                <span>Edit</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Calendar className="mr-2 h-4 w-4" />
+                                <span>Manage availability</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash className="mr-2 h-4 w-4" />
+                                <span>Delete</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredServices.map((service) => (
+                      <div key={service.id} className="flex justify-between items-center border rounded-lg p-4">
+                        <div className="flex-1">
+                          <div className="flex items-center">
+                            <h3 className="font-medium">{service.name}</h3>
+                            {service.popular && (
+                              <Badge className="ml-2 bg-primary text-primary-foreground">
+                                Popular
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>{service.duration} min</span>
+                            </div>
+                            <div>${service.price}</div>
+                            <Badge variant="outline">{service.category}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
+                          <Button variant="ghost" size="icon">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-red-600">
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
   );
 } 

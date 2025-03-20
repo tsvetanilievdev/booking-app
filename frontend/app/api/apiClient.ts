@@ -1,248 +1,85 @@
-import { fetchWithErrorHandling, fetchWithTimeout, createAbortController } from '../utils/api';
+import axios, { AxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-
-interface RequestOptions extends RequestInit {
+// Define a custom config that extends AxiosRequestConfig
+interface CustomRequestConfig extends AxiosRequestConfig {
   requireAuth?: boolean;
-  timeout?: number;
 }
 
-class ApiClient {
-  private maxRetries = 2; // Maximum number of retries for failed requests
-  private retryDelay = 1000; // Delay between retries in milliseconds
-  private defaultTimeout = 10000; // Default timeout for requests in milliseconds
-  
-  private getAuthToken(): string | null {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('authToken');
-      console.log('Getting auth token from localStorage:', token ? `${token.substring(0, 15)}...` : 'null');
-      return token;
-    }
-    return null;
-  }
+// Create base axios instance
+const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-  private getHeaders(options?: RequestInit): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options?.headers as Record<string, string> || {}),
-    };
-
-    const token = this.getAuthToken();
+// Add a request interceptor to attach auth token
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add auth token if available and request requires auth
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.log('Added Authorization header with token');
-    } else {
-      console.log('No token available for Authorization header');
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-    return headers;
-  }
-
-  /**
-   * Makes a request with retry logic for failed requests
-   */
-  private async requestWithRetry<T>(
-    url: string,
-    options: RequestInit,
-    timeout: number,
-    retries: number = 0
-  ): Promise<T> {
-    try {
-      const response = await fetchWithTimeout<T>(
-        url, 
-        options,
-        timeout
-      );
-      return response;
-    } catch (error: any) {
-      // Don't retry if we've reached the maximum number of retries
-      // or if it's a client error (4xx)
+// Add response interceptor for error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    // Check if error is due to database connection issues
+    if (error.response?.status === 500) {
+      const errorMessage = error.response?.data?.message || error.message;
       if (
-        retries >= this.maxRetries || 
-        (error.status && error.status >= 400 && error.status < 500)
+        errorMessage.includes('database') || 
+        errorMessage.includes('connection') ||
+        errorMessage.includes('prisma')
       ) {
-        throw error;
-      }
-      
-      // Log the retry attempt
-      console.warn(`Request to ${url} failed, retrying (${retries + 1}/${this.maxRetries})...`);
-      
-      // Wait for the retry delay
-      await new Promise(resolve => setTimeout(resolve, this.retryDelay));
-      
-      // Retry the request
-      return this.requestWithRetry<T>(url, options, timeout, retries + 1);
-    }
-  }
-
-  /**
-   * Makes a GET request to the API
-   */
-  async get<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
-    
-    if (requireAuth) {
-      const token = this.getAuthToken();
-      if (!token) {
-        console.error('Authentication required but no token found');
-        if (typeof window !== 'undefined') {
-          // Force redirect to login if client-side
-          console.log('Redirecting to login page due to missing token');
-          window.location.href = '/login';
-        }
-        throw new Error('Authentication required');
+        error.isDatabaseError = true;
       }
     }
 
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making GET request to ${url}`);
-    
-    try {
-      return await this.requestWithRetry<T>(
-        url, 
-        {
-          ...restOptions,
-          method: 'GET',
-          headers: this.getHeaders(restOptions),
-        },
-        timeout
-      );
-    } catch (error) {
-      console.error(`GET request to ${url} failed:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Makes a POST request to the API
-   */
-  async post<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
-    
-    if (requireAuth) {
-      const token = this.getAuthToken();
-      if (!token) {
-        console.error('Authentication required but no token found');
-        if (typeof window !== 'undefined') {
-          // Force redirect to login if client-side
-          console.log('Redirecting to login page due to missing token');
-          window.location.href = '/login';
-        }
-        throw new Error('Authentication required');
-      }
-    }
-
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making POST request to ${url} with data:`, JSON.stringify(data, null, 2));
-    
-    try {
-      const payload = JSON.stringify(data);
-      console.log(`POST payload (${payload.length} bytes)`, payload);
+    // Handle 401 Unauthorized errors
+    if (error.response?.status === 401) {
+      // Clear auth token if it's expired or invalid
+      localStorage.removeItem('authToken');
       
-      return await this.requestWithRetry<T>(
-        url, 
-        {
-          ...restOptions,
-          method: 'POST',
-          headers: this.getHeaders(restOptions),
-          body: payload,
-        },
-        timeout
-      );
-    } catch (error) {
-      console.error(`POST request to ${url} failed:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Makes a PUT request to the API
-   */
-  async put<T>(endpoint: string, data?: any, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
-    
-    if (requireAuth) {
-      const token = this.getAuthToken();
-      if (!token) {
-        console.error('Authentication required but no token found');
-        if (typeof window !== 'undefined') {
-          // Force redirect to login if client-side
-          console.log('Redirecting to login page due to missing token');
-          window.location.href = '/login';
-        }
-        throw new Error('Authentication required');
+      // Redirect to login page if not already there
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
     }
 
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making PUT request to ${url}`, data);
-    
-    try {
-      const payload = JSON.stringify(data);
-      console.log(`PUT payload for ${url}:`, payload);
-      
-      return await this.requestWithRetry<T>(
-        url, 
-        {
-          ...restOptions,
-          method: 'PUT',
-          headers: this.getHeaders(restOptions),
-          body: payload,
-        },
-        timeout
-      );
-    } catch (error) {
-      console.error(`PUT request to ${url} failed:`, error);
-      throw error;
-    }
+    return Promise.reject(error);
   }
+);
 
-  /**
-   * Makes a DELETE request to the API
-   */
-  async delete<T>(endpoint: string, options?: RequestOptions): Promise<T> {
-    const { requireAuth = true, timeout = this.defaultTimeout, ...restOptions } = options || {};
-    
-    if (requireAuth) {
-      const token = this.getAuthToken();
-      if (!token) {
-        console.error('Authentication required but no token found');
-        if (typeof window !== 'undefined') {
-          // Force redirect to login if client-side
-          console.log('Redirecting to login page due to missing token');
-          window.location.href = '/login';
-        }
-        throw new Error('Authentication required');
-      }
-    }
-
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`Making DELETE request to ${url}`);
-    
-    try {
-      return await this.requestWithRetry<T>(
-        url, 
-        {
-          ...restOptions,
-          method: 'DELETE',
-          headers: this.getHeaders(restOptions),
-        },
-        timeout
-      );
-    } catch (error) {
-      console.error(`DELETE request to ${url} failed:`, error);
-      throw error;
-    }
+// Wrapper functions
+export const api = {
+  async get<T>(endpoint: string, config?: CustomRequestConfig): Promise<T> {
+    const { data } = await apiClient.get<T>(endpoint, config);
+    return data;
+  },
+  
+  async post<T>(endpoint: string, body?: any, config?: CustomRequestConfig): Promise<T> {
+    const { data } = await apiClient.post<T>(endpoint, body, config);
+    return data;
+  },
+  
+  async put<T>(endpoint: string, body?: any, config?: CustomRequestConfig): Promise<T> {
+    const { data } = await apiClient.put<T>(endpoint, body, config);
+    return data;
+  },
+  
+  async delete<T>(endpoint: string, config?: CustomRequestConfig): Promise<T> {
+    const { data } = await apiClient.delete<T>(endpoint, config);
+    return data;
   }
+};
 
-  /**
-   * Creates an abort controller for cancellable requests
-   */
-  createAbortController() {
-    return createAbortController();
-  }
-}
-
-// Create and export a singleton instance
-const apiClient = new ApiClient();
-export default apiClient; 
+export default api; 

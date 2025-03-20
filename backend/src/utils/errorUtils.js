@@ -218,6 +218,19 @@ export const createDatabaseError = (message = 'Database error') => {
 };
 
 /**
+ * Helper function to create a bad request error
+ * @param {string} message - The error message
+ * @returns {AppError} A bad request error
+ */
+export const createBadRequestError = (message = 'Bad request') => {
+  return new AppError(
+    message, 
+    400, 
+    ErrorCodes.INVALID_INPUT
+  );
+};
+
+/**
  * Helper function to get a user-friendly error message from an error code
  * @param {string} code - The error code
  * @returns {string} A user-friendly error message
