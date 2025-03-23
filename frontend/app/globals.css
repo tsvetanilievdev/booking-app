@@ -120,3 +120,99 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* FullCalendar Custom Styles */
+.fc {
+  --fc-border-color: var(--color-border);
+  --fc-button-text-color: var(--color-primary);
+  --fc-button-bg-color: transparent;
+  --fc-button-border-color: var(--color-border);
+  --fc-button-hover-bg-color: var(--color-secondary);
+  --fc-button-hover-border-color: var(--color-border);
+  --fc-button-active-bg-color: var(--color-primary);
+  --fc-button-active-border-color: var(--color-primary);
+  --fc-button-active-text-color: var(--color-primary-foreground);
+  --fc-event-bg-color: var(--color-primary);
+  --fc-event-border-color: var(--color-primary);
+  --fc-event-text-color: var(--color-primary-foreground);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--color-card);
+  --fc-neutral-text-color: var(--color-card-foreground);
+  --fc-today-bg-color: var(--color-muted);
+  --fc-list-event-hover-bg-color: var(--color-muted);
+  font-family: var(--font-sans);
+}
+
+.fc .fc-button {
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.fc .fc-button:focus {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.fc .fc-col-header-cell {
+  background-color: var(--color-muted);
+  padding: 0.5rem;
+}
+
+.fc .fc-col-header-cell-cushion {
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--color-foreground);
+}
+
+.fc .fc-daygrid-day-number,
+.fc .fc-daygrid-day-top {
+  text-decoration: none;
+  color: var(--color-foreground);
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: var(--color-muted);
+}
+
+.fc .fc-event {
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  font-size: 0.875rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Time grid specific */
+.fc .fc-timegrid-slot {
+  height: 40px;
+}
+
+.fc .fc-timegrid-now-indicator-line {
+  border-color: var(--color-destructive);
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: var(--color-destructive);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
+/* List view */
+.fc .fc-list-day-cushion {
+  background-color: var(--color-muted);
+}
+
+.fc .fc-list-event:hover td {
+  background-color: var(--color-muted);
+}
+
+.calendar-container .fc-event-content-wrapper {
+  line-height: 1.2;
+}

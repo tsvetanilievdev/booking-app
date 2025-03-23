@@ -30,7 +30,8 @@ export interface User {
 
 export interface AuthResponse {
   token: string;
-  user: User;
+  message: string;
+  status: string;
 }
 
 // Auth API functions
@@ -38,14 +39,18 @@ export const authApi = {
   // Login with email and password
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await api.post<AuthResponse>('/auth/login', credentials, { requireAuth: false });
+      const response = await api.post<{ status: string, message: string, data: { token: string } }>('/auth/login', credentials, { requireAuth: false });
       
       // Store token in localStorage for subsequent requests
-      if (response.token) {
-        localStorage.setItem('authToken', response.token);
+      if (response.data?.token) {
+        localStorage.setItem('authToken', response.data.token);
       }
       
-      return response;
+      return {
+        token: response.data?.token || '',
+        message: response.message || '',
+        status: response.status || ''
+      };
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -55,14 +60,18 @@ export const authApi = {
   // Register a new user
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await api.post<AuthResponse>('/auth/register', userData, { requireAuth: false });
+      const response = await api.post<{ status: string, message: string, data: { token: string } }>('/auth/register', userData, { requireAuth: false });
       
       // Store token in localStorage
-      if (response.token) {
-        localStorage.setItem('authToken', response.token);
+      if (response.data?.token) {
+        localStorage.setItem('authToken', response.data.token);
       }
       
-      return response;
+      return {
+        token: response.data?.token || '',
+        message: response.message || '',
+        status: response.status || ''
+      };
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -72,7 +81,8 @@ export const authApi = {
   // Get the current logged in user
   async getCurrentUser(): Promise<User> {
     try {
-      return await api.get<User>('/users/me');
+      const response = await api.get<{ status: string, data: { user: User } }>('/users');
+      return response.data.user;
     } catch (error) {
       console.error('Get current user error:', error);
       throw error;

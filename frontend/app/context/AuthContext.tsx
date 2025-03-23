@@ -46,8 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const response = await authApi.login(credentials);
-      setUser(response.user);
-      toast.success(`Welcome back, ${response.user.name}!`);
+      // The response only contains token, we need to fetch user data
+      const userData = await authApi.getCurrentUser();
+      setUser(userData);
+      toast.success(`Welcome back${userData.name ? ', ' + userData.name : ''}!`);
       router.push('/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed. Please check your credentials.');
@@ -62,8 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const response = await authApi.register(userData);
-      setUser(response.user);
-      toast.success('Registration successful! Welcome to the Booking System.');
+      // The response only contains token, we need to fetch user data
+      const userProfile = await authApi.getCurrentUser();
+      setUser(userProfile);
+      toast.success(`Welcome to the Booking System, ${userProfile.name}!`);
       router.push('/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
