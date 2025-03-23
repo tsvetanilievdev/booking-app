@@ -69,8 +69,8 @@ export const validateClient = (req, res, next) => {
 
     // Phone is optional but must be valid if provided
     if (phone !== undefined && phone !== null) {
-        if (typeof phone !== 'string' || phone.trim().length === 0) {
-            errors.push('Phone must be a valid string');
+        if (typeof phone !== 'string') {
+            errors.push('Phone must be a string');
         }
     }
 

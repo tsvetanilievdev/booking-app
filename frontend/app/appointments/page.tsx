@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, Clock, Search, Plus, Filter, MoreHorizontal, Trash2, Edit, X, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Search, Plus, Filter, MoreHorizontal, Trash2, Edit, X, Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, parseISO, startOfDay, endOfDay, addMinutes } from 'date-fns';
 // Import FullCalendar and required plugins
 import FullCalendar from '@fullcalendar/react';
@@ -28,6 +28,18 @@ import clientApi, { Client } from '@/app/api/clients';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const statusColors = {
   confirmed: 'bg-green-100 text-green-800',
@@ -103,7 +115,26 @@ export default function AppointmentsPage() {
   const fetchClients = async () => {
     try {
       const response = await clientApi.getClients();
-      setClients(response?.items || []);
+      console.log('Fetched clients response:', response);
+      
+      if (response.status === 'success') {
+        // Handle both possible response structures
+        if (Array.isArray(response.data)) {
+          // Direct array of clients
+          console.log('Setting clients to direct array:', response.data);
+          setClients(response.data);
+        } else if (response.data && response.data.clients && Array.isArray(response.data.clients)) {
+          // Nested clients array
+          console.log('Setting clients to nested array:', response.data.clients);
+          setClients(response.data.clients);
+        } else {
+          console.log('No clients found in response or unexpected format:', response);
+          setClients([]);
+        }
+      } else {
+        console.log('API response not successful:', response);
+        setClients([]);
+      }
     } catch (error) {
       console.error('Error fetching clients:', error);
       toast.error('Failed to load clients');
@@ -115,7 +146,26 @@ export default function AppointmentsPage() {
   const fetchServices = async () => {
     try {
       const response = await serviceApi.getServices();
-      setServices(response?.items || []);
+      console.log('Fetched services response:', response);
+      
+      if (response.status === 'success') {
+        // Handle both possible response structures
+        if (Array.isArray(response.data)) {
+          // Direct array of services
+          console.log('Setting services to direct array:', response.data);
+          setServices(response.data);
+        } else if (response.data && response.data.services && Array.isArray(response.data.services)) {
+          // Nested services array
+          console.log('Setting services to nested array:', response.data.services);
+          setServices(response.data.services);
+        } else {
+          console.log('No services found in response or unexpected format:', response);
+          setServices([]);
+        }
+      } else {
+        console.log('No services found in response or unexpected format:', response);
+        setServices([]);
+      }
     } catch (error) {
       console.error('Error fetching services:', error);
       toast.error('Failed to load services');
@@ -606,43 +656,45 @@ export default function AppointmentsPage() {
               <Label htmlFor="clientId" className="text-right">
                 Client
               </Label>
-              <Select
-                name="clientId"
-                value={formData.clientId}
-                onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.clientId} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="serviceId" className="text-right">
                 Service
               </Label>
-              <Select
-                name="serviceId"
-                value={formData.serviceId}
-                onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.map(service => (
-                    <SelectItem key={service.id} value={service.id}>
-                      {service.name} ({service.duration} mins)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.serviceId} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map(service => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.name} ({service.duration} mins)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="startTime" className="text-right">
@@ -710,43 +762,45 @@ export default function AppointmentsPage() {
               <Label htmlFor="clientId" className="text-right">
                 Client
               </Label>
-              <Select
-                name="clientId"
-                value={formData.clientId}
-                onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select client" />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.clientId} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map(client => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="serviceId" className="text-right">
                 Service
               </Label>
-              <Select
-                name="serviceId"
-                value={formData.serviceId}
-                onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {services.map(service => (
-                    <SelectItem key={service.id} value={service.id}>
-                      {service.name} ({service.duration} mins)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Select 
+                  value={formData.serviceId} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map(service => (
+                      <SelectItem key={service.id} value={service.id}>
+                        {service.name} ({service.duration} mins)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="startTime" className="text-right">

@@ -68,8 +68,32 @@ export default function ServicesPage() {
   const fetchServices = async () => {
     try {
       setLoading(true);
+      console.log('Fetching services...');
+      
       const response = await serviceApi.getServices();
-      setServices(response?.items || []);
+      console.log('Raw service API response:', response);
+      
+      if (response.status === 'success') {
+        // Handle both possible response structures
+        if (Array.isArray(response.data)) {
+          // Direct array of services
+          console.log('Found direct services array with length:', response.data.length);
+          setServices(response.data);
+          console.log('Services state set to:', response.data);
+        } else if (response.data && response.data.services && Array.isArray(response.data.services)) {
+          // Nested services array
+          console.log('Found nested services array with length:', response.data.services.length);
+          setServices(response.data.services);
+          console.log('Services state set to:', response.data.services);
+        } else {
+          console.warn('Services data has unexpected format:', response.data);
+          setServices([]);
+        }
+      } else {
+        console.warn('Unexpected response format:', response);
+        setServices([]);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching services:', error);
@@ -215,10 +239,21 @@ export default function ServicesPage() {
   // Toggle service availability
   const handleToggleAvailability = async (service: Service) => {
     try {
-      await serviceApi.updateService(service.id, {
-        ...service,
-        isAvailable: !service.isAvailable
-      });
+      // Create a serviceData object with only the fields allowed in ServiceCreateData
+      const serviceData: Partial<ServiceCreateData> = {
+        name: service.name,
+        description: service.description,
+        price: service.price,
+        duration: service.duration,
+        availableDays: service.availableDays,
+        availableTimeStart: service.availableTimeStart,
+        availableTimeEnd: service.availableTimeEnd
+      };
+
+      // Update the service on the backend
+      await serviceApi.updateService(service.id, serviceData);
+      
+      // Show success message
       toast.success(`Service is now ${!service.isAvailable ? 'available' : 'unavailable'}`);
       
       // Refresh service list
@@ -280,23 +315,21 @@ export default function ServicesPage() {
               Manage your service offerings
             </p>
           </div>
-          {user?.role === 'ADMIN' && (
-            <Button className="sm:w-auto w-full" onClick={() => {
-              setServiceForm({
-                name: '',
-                description: '',
-                price: 0,
-                duration: 30,
-                availableDays: [1, 2, 3, 4, 5],
-                availableTimeStart: 9,
-                availableTimeEnd: 17,
-              });
-              setIsAddServiceOpen(true);
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Service
-            </Button>
-          )}
+          <Button className="sm:w-auto w-full" onClick={() => {
+            setServiceForm({
+              name: '',
+              description: '',
+              price: 0,
+              duration: 30,
+              availableDays: [1, 2, 3, 4, 5],
+              availableTimeStart: 9,
+              availableTimeEnd: 17,
+            });
+            setIsAddServiceOpen(true);
+          }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Service
+          </Button>
         </div>
 
         <Tabs defaultValue="all" className="space-y-4" onValueChange={setActiveTab}>

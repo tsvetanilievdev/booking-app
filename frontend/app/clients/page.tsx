@@ -78,8 +78,31 @@ export default function ClientsPage() {
     try {
       setLoading(true);
       const response = await clientApi.getClients(searchQuery, page, itemsPerPage);
-      setClients(response?.items || []);
-      setTotalClients(response?.total || 0);
+      console.log('Client API response:', response); // Debug log
+      
+      if (response.status === 'success') {
+        // Handle both possible response structures
+        if (Array.isArray(response.data)) {
+          // Direct array of clients
+          console.log('Setting clients to direct array:', response.data);
+          setClients(response.data);
+          setTotalClients(response.results || response.data.length || 0);
+        } else if (response.data && response.data.clients && Array.isArray(response.data.clients)) {
+          // Nested clients array
+          console.log('Setting clients to nested array:', response.data.clients);
+          setClients(response.data.clients);
+          setTotalClients(response.results || response.data.clients.length || 0);
+        } else {
+          console.log('No clients found in response or unexpected format:', response);
+          setClients([]);
+          setTotalClients(0);
+        }
+      } else {
+        console.log('API response not successful:', response);
+        setClients([]);
+        setTotalClients(0);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching clients:', error);
@@ -124,7 +147,15 @@ export default function ClientsPage() {
   const handleAddClient = async () => {
     try {
       setSubmitting(true);
-      const newClient = await clientApi.createClient(clientForm);
+      
+      // Ensure phone and email are at least empty strings
+      const clientDataToSubmit = {
+        ...clientForm,
+        phone: clientForm.phone || '',
+        email: clientForm.email || ''
+      };
+      
+      const newClient = await clientApi.createClient(clientDataToSubmit);
       toast.success('Client added successfully');
       
       // Refresh client list
@@ -153,7 +184,15 @@ export default function ClientsPage() {
     
     try {
       setSubmitting(true);
-      await clientApi.updateClient(selectedClient.id, clientForm);
+      
+      // Ensure phone and email are at least empty strings
+      const clientDataToSubmit = {
+        ...clientForm,
+        phone: clientForm.phone || '',
+        email: clientForm.email || ''
+      };
+      
+      await clientApi.updateClient(selectedClient.id, clientDataToSubmit);
       toast.success('Client updated successfully');
       
       // Refresh client list
@@ -490,7 +529,7 @@ export default function ClientsPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="phone" className="text-right">
-                Phone *
+                Phone
               </Label>
               <Input
                 id="phone"
@@ -498,7 +537,6 @@ export default function ClientsPage() {
                 value={clientForm.phone}
                 onChange={handleFormChange}
                 className="col-span-3"
-                required
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -525,7 +563,7 @@ export default function ClientsPage() {
             </Button>
             <Button 
               onClick={handleAddClient}
-              disabled={submitting || !clientForm.name || !clientForm.phone}
+              disabled={submitting || !clientForm.name}
             >
               {submitting ? (
                 <>
@@ -578,7 +616,7 @@ export default function ClientsPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="phone" className="text-right">
-                Phone *
+                Phone
               </Label>
               <Input
                 id="phone"
@@ -586,7 +624,6 @@ export default function ClientsPage() {
                 value={clientForm.phone}
                 onChange={handleFormChange}
                 className="col-span-3"
-                required
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
@@ -613,7 +650,7 @@ export default function ClientsPage() {
             </Button>
             <Button 
               onClick={handleUpdateClient}
-              disabled={submitting || !clientForm.name || !clientForm.phone}
+              disabled={submitting || !clientForm.name}
             >
               {submitting ? (
                 <>

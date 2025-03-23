@@ -14,10 +14,9 @@ export interface Service {
 }
 
 export interface ServiceList {
-  items: Service[];
-  total: number;
-  page: number;
-  limit: number;
+  status: string;
+  results?: number;
+  data: Service[] | { services: Service[] };
 }
 
 export interface ServiceAnalytics {

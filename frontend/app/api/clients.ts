@@ -16,10 +16,9 @@ export interface Client {
 }
 
 export interface ClientList {
-  items: Client[];
-  total: number;
-  page: number;
-  limit: number;
+  status: string;
+  results?: number;
+  data: Client[] | { clients: Client[] };
 }
 
 export interface ClientCreateData {
