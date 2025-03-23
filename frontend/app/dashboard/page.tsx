@@ -1,17 +1,92 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { DashboardLayout } from '@/components/dashboard/dashboard-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Calendar, Clock, Users, Coins, TrendingUp, CalendarClock } from 'lucide-react';
+import { Calendar, Clock, Users, Coins, TrendingUp, CalendarClock, Loader2 } from 'lucide-react';
+import { format } from 'date-fns';
+import appointmentApi, { Appointment } from '@/app/api/appointments';
+import clientApi from '@/app/api/clients';
+import serviceApi, { Service } from '@/app/api/services';
+import { toast } from 'sonner';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  
+  // Dashboard data state
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
+  const [totalClients, setTotalClients] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    setDashboardLoading(true);
+    try {
+      // Fetch today's appointments
+      const todayResponse = await appointmentApi.getTodayAppointments();
+      if (todayResponse?.data?.appointments) {
+        setTodayAppointments(todayResponse.data.appointments);
+      }
+      
+      // Fetch upcoming appointments (next 7 days)
+      const weekResponse = await appointmentApi.getWeekAppointments();
+      if (weekResponse?.data?.appointments) {
+        setUpcomingAppointments(weekResponse.data.appointments);
+      }
+      
+      // Fetch clients count
+      const clientsResponse = await clientApi.getClients();
+      if (clientsResponse) {
+        // Handle different response formats
+        if (Array.isArray(clientsResponse.data)) {
+          setTotalClients(clientsResponse.data.length);
+        } else if (clientsResponse.data?.clients && Array.isArray(clientsResponse.data.clients)) {
+          setTotalClients(clientsResponse.data.clients.length);
+        } else if (clientsResponse.results) {
+          setTotalClients(clientsResponse.results);
+        }
+      }
+      
+      // Fetch revenue data
+      try {
+        const servicesResponse = await serviceApi.getServices();
+        if (servicesResponse?.data) {
+          let services: Service[] = [];
+          if (Array.isArray(servicesResponse.data)) {
+            services = servicesResponse.data;
+          } else if (servicesResponse.data.services && Array.isArray(servicesResponse.data.services)) {
+            services = servicesResponse.data.services;
+          }
+          
+          // Calculate total revenue from services
+          const revenue = services.reduce((total, service) => total + (service.price || 0), 0);
+          setTotalRevenue(revenue);
+        }
+      } catch (error) {
+        console.error('Error fetching revenue data:', error);
+      }
+      
+      setDashboardLoading(false);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+      setDashboardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDashboardData();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -43,9 +118,11 @@ export default function DashboardPage() {
 
         <Alert>
           <TrendingUp className="h-4 w-4" />
-          <AlertTitle>Business Analytics Updated</AlertTitle>
+          <AlertTitle>Business Snapshot</AlertTitle>
           <AlertDescription>
-            Your business analytics have been updated. You had 15% more bookings this week!
+            {dashboardLoading 
+              ? "Loading your business data..." 
+              : `You have ${todayAppointments.length} appointments today and ${upcomingAppointments.length} in the next week.`}
           </AlertDescription>
         </Alert>
 
@@ -56,8 +133,14 @@ export default function DashboardPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
-              <p className="text-xs text-muted-foreground">+2 from yesterday</p>
+              {dashboardLoading ? (
+                <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{todayAppointments.length}</div>
+                  <p className="text-xs text-muted-foreground">Scheduled for today</p>
+                </>
+              )}
             </CardContent>
           </Card>
           
@@ -67,8 +150,14 @@ export default function DashboardPage() {
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">24</div>
-              <p className="text-xs text-muted-foreground">Next 7 days</p>
+              {dashboardLoading ? (
+                <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{upcomingAppointments.length}</div>
+                  <p className="text-xs text-muted-foreground">Next 7 days</p>
+                </>
+              )}
             </CardContent>
           </Card>
           
@@ -78,8 +167,14 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">132</div>
-              <p className="text-xs text-muted-foreground">+6 new this week</p>
+              {dashboardLoading ? (
+                <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">{totalClients}</div>
+                  <p className="text-xs text-muted-foreground">Registered clients</p>
+                </>
+              )}
             </CardContent>
           </Card>
           
@@ -89,8 +184,14 @@ export default function DashboardPage() {
               <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">$1,290</div>
-              <p className="text-xs text-muted-foreground">+10% from last week</p>
+              {dashboardLoading ? (
+                <div className="h-6 w-24 rounded-md bg-muted animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-2xl font-bold">${totalRevenue}</div>
+                  <p className="text-xs text-muted-foreground">Total revenue</p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -99,52 +200,75 @@ export default function DashboardPage() {
           <Card className="col-span-1">
             <CardHeader>
               <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>You have 12 appointments today</CardDescription>
+              <CardDescription>
+                {dashboardLoading 
+                  ? "Loading schedule..." 
+                  : `You have ${todayAppointments.length} appointments today`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {[
-                { time: '09:00 - 09:45', client: 'John Smith', service: 'Haircut' },
-                { time: '10:15 - 11:00', client: 'Sarah Johnson', service: 'Manicure' },
-                { time: '11:30 - 12:15', client: 'David Brown', service: 'Massage' },
-                { time: '14:00 - 15:30', client: 'Emma Wilson', service: 'Full Service' }
-              ].map((appt, index) => (
-                <div key={index} className="flex items-center justify-between space-x-4 rounded-lg border p-3">
-                  <div className="flex items-center space-x-4">
-                    <div className="rounded-full bg-primary/10 p-2">
-                      <Clock className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{appt.client}</p>
-                      <p className="text-xs text-muted-foreground">{appt.time}</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">{appt.service}</Badge>
+              {dashboardLoading ? (
+                <div className="space-y-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-16 rounded-md bg-muted animate-pulse" />
+                  ))}
                 </div>
-              ))}
+              ) : todayAppointments.length > 0 ? (
+                todayAppointments.map((appointment) => (
+                  <div key={appointment.id} className="flex items-center justify-between space-x-4 rounded-lg border p-3">
+                    <div className="flex items-center space-x-4">
+                      <div className="rounded-full bg-primary/10 p-2">
+                        <Clock className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{appointment.Client?.name || 'Unknown Client'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(appointment.startTime), 'HH:mm')} - {format(new Date(appointment.endTime), 'HH:mm')}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary">{appointment.Service?.name || 'Unknown Service'}</Badge>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium">No appointments today</p>
+                  <p className="text-xs text-muted-foreground">Your schedule is clear for the day</p>
+                </div>
+              )}
             </CardContent>
           </Card>
           
           <Card className="col-span-1">
             <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest actions in your business</CardDescription>
+              <CardTitle>Upcoming Appointments</CardTitle>
+              <CardDescription>Next 7 days</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {[
-                { action: 'New booking', client: 'Lisa Taylor', time: '10 minutes ago' },
-                { action: 'Booking modified', client: 'Michael Davis', time: '25 minutes ago' },
-                { action: 'Payment received', client: 'Jennifer White', time: '1 hour ago' },
-                { action: 'Booking canceled', client: 'Robert Miller', time: '2 hours ago' },
-                { action: 'New client registered', client: 'Amanda Lee', time: '3 hours ago' }
-              ].map((activity, index) => (
-                <div key={index} className="flex justify-between border-b pb-2 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">{activity.client}</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
+              {dashboardLoading ? (
+                <div className="space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-10 rounded-md bg-muted animate-pulse" />
+                  ))}
                 </div>
-              ))}
+              ) : upcomingAppointments.length > 0 ? (
+                upcomingAppointments.slice(0, 5).map((appointment) => (
+                  <div key={appointment.id} className="flex justify-between border-b pb-2 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium">{appointment.Client?.name || 'Unknown Client'}</p>
+                      <p className="text-xs text-muted-foreground">{appointment.Service?.name || 'Unknown Service'}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{format(new Date(appointment.startTime), 'MMM d, HH:mm')}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm font-medium">No upcoming appointments</p>
+                  <p className="text-xs text-muted-foreground">Your schedule is clear for the week</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
