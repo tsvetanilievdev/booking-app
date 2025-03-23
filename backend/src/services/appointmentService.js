@@ -154,6 +154,15 @@ export const getAppointmentById = async (id) => {
  */
 export const checkAppointmentConflicts = async (startTime, endTime, serviceId, excludeAppointmentId = null) => {
     try {
+        // Validate date parameters
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            logger.error(`Invalid date values: startTime=${startTime}, endTime=${endTime}`);
+            throw new Error('Invalid date format provided for appointment conflict check');
+        }
+        
         // Build where clause to detect any overlapping appointments
         const where = {
             AND: [
@@ -162,22 +171,22 @@ export const checkAppointmentConflicts = async (startTime, endTime, serviceId, e
                         // Case 1: New appointment starts during an existing appointment
                         {
                             AND: [
-                                { startTime: { lte: new Date(startTime) } },
-                                { endTime: { gt: new Date(startTime) } }
+                                { startTime: { lte: startDate } },
+                                { endTime: { gt: startDate } }
                             ]
                         },
                         // Case 2: New appointment ends during an existing appointment
                         {
                             AND: [
-                                { startTime: { lt: new Date(endTime) } },
-                                { endTime: { gte: new Date(endTime) } }
+                                { startTime: { lt: endDate } },
+                                { endTime: { gte: endDate } }
                             ]
                         },
                         // Case 3: New appointment completely contains an existing appointment
                         {
                             AND: [
-                                { startTime: { gte: new Date(startTime) } },
-                                { endTime: { lte: new Date(endTime) } }
+                                { startTime: { gte: startDate } },
+                                { endTime: { lte: endDate } }
                             ]
                         }
                     ]
@@ -216,6 +225,18 @@ export const checkAppointmentConflicts = async (startTime, endTime, serviceId, e
  */
 export const checkServiceAvailability = async (serviceId, startTime, endTime) => {
     try {
+        // Validate date parameters
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            logger.error(`Invalid date values: startTime=${startTime}, endTime=${endTime}`);
+            return {
+                available: false,
+                reason: 'Invalid date format provided for appointment'
+            };
+        }
+        
         // Get service details with availability settings
         const service = await prisma.service.findUnique({
             where: { id: serviceId },
@@ -234,8 +255,7 @@ export const checkServiceAvailability = async (serviceId, startTime, endTime) =>
         }
         
         // Parse start and end time
-        const appointmentDate = new Date(startTime);
-        const dayOfWeek = appointmentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const dayOfWeek = startDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
         
         // Check if service is available on this day
         if (!service.availableDays.includes(dayOfWeek)) {
@@ -246,8 +266,8 @@ export const checkServiceAvailability = async (serviceId, startTime, endTime) =>
         }
         
         // Parse hours for time range check
-        const appointmentStartHour = appointmentDate.getHours();
-        const appointmentEndHour = new Date(endTime).getHours();
+        const appointmentStartHour = startDate.getHours();
+        const appointmentEndHour = endDate.getHours();
         
         // Check if appointment is within service available hours
         if (appointmentStartHour < service.availableTimeStart || appointmentEndHour > service.availableTimeEnd) {
@@ -285,6 +305,15 @@ export const createAppointment = async (appointmentData) => {
     try {
         const { userId, serviceId, clientId, startTime, endTime, notes } = appointmentData;
         
+        // Validate date parameters
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            logger.error(`Invalid date values in createAppointment: startTime=${startTime}, endTime=${endTime}`);
+            throw createBadRequestError('Invalid date format provided for appointment');
+        }
+        
         // Validate client exists
         if (clientId) {
             const client = await prisma.client.findUnique({
@@ -318,8 +347,8 @@ export const createAppointment = async (appointmentData) => {
                 userId,
                 serviceId,
                 clientId,
-                startTime: new Date(startTime),
-                endTime: new Date(endTime),
+                startTime: startDate,
+                endTime: endDate,
                 notes: notes || [],
             },
             include: {

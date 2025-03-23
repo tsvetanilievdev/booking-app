@@ -102,6 +102,16 @@ const baseAppointmentSchema = z.object({
       message: "Invalid date format"
     })
     .transform(date => new Date(date)),
+  endTime: z.string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/, "Invalid ISO date format")
+    .or(z.date())
+    .refine(date => {
+      const dateObj = new Date(date);
+      return !isNaN(dateObj.getTime());
+    }, {
+      message: "Invalid date format"
+    })
+    .transform(date => new Date(date)),
   notes: notesRule
 });
 

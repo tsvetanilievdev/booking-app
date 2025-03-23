@@ -12,8 +12,8 @@ export interface Appointment {
   endTime: string;
   notes: string[];
   isCancelled: boolean;
-  service?: Service;
-  client?: Client;
+  Client?: Client;
+  Service?: Service;
 }
 
 export interface AppointmentList {
@@ -40,7 +40,9 @@ export interface AppointmentCreateData {
   serviceId: string;
   clientId: number;
   startTime: string;
+  endTime: string;
   notes?: string[];
+  userId?: string;
 }
 
 // Appointment API functions

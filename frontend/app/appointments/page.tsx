@@ -77,12 +77,16 @@ export default function AppointmentsPage() {
   const [formData, setFormData] = useState<{
     serviceId: string;
     clientId: string;
+    date: string;
     startTime: string;
+    endTime: string;
     notes: string;
   }>({
     serviceId: '',
     clientId: '',
-    startTime: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: format(new Date(), 'HH:mm'),
+    endTime: '',
     notes: '',
   });
 
@@ -100,8 +104,26 @@ export default function AppointmentsPage() {
     try {
       setLoading(true);
       const response = await appointmentApi.getAppointments();
-      // Handle potential undefined appointments array
-      setAppointments(response?.data?.appointments || []);
+      console.log('Appointments API response:', response);
+      
+      if (response && response.data) {
+        if (Array.isArray(response.data.appointments)) {
+          // Standard response format
+          console.log('Setting appointments from appointments array:', response.data.appointments);
+          setAppointments(response.data.appointments);
+        } else if (Array.isArray(response.data)) {
+          // Alternative response format
+          console.log('Setting appointments from direct data array:', response.data);
+          setAppointments(response.data);
+        } else {
+          console.warn('Unexpected appointments data format:', response.data);
+          setAppointments([]);
+        }
+      } else {
+        console.warn('No appointment data in response:', response);
+        setAppointments([]);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -182,8 +204,8 @@ export default function AppointmentsPage() {
 
   // Filter appointments based on search query and status filter - with null checks
   const filteredAppointments = appointments ? appointments.filter(appointment => {
-    const clientName = appointment.client?.name || '';
-    const serviceName = appointment.service?.name || '';
+    const clientName = appointment.Client?.name || '';
+    const serviceName = appointment.Service?.name || '';
     
     const matchesSearch = 
       clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -205,7 +227,7 @@ export default function AppointmentsPage() {
     
     return {
       id: appointment.id,
-      title: `${appointment.client?.name || 'Unknown Client'} - ${appointment.service?.name || 'Unknown Service'}`,
+      title: `${appointment.Client?.name || 'Unknown Client'} - ${appointment.Service?.name || 'Unknown Service'}`,
       start: startTime,
       end: endTime,
       backgroundColor: eventColors[status as keyof typeof eventColors],
@@ -229,6 +251,24 @@ export default function AppointmentsPage() {
     }));
   };
 
+  // Calculate end time based on service duration and start time
+  useEffect(() => {
+    if (formData.serviceId && formData.startTime) {
+      const selectedService = services.find(s => s.id === formData.serviceId);
+      if (selectedService) {
+        const [hours, minutes] = formData.startTime.split(':').map(Number);
+        const startDate = new Date();
+        startDate.setHours(hours, minutes, 0, 0);
+        
+        const endDate = new Date(startDate.getTime() + selectedService.duration * 60000);
+        setFormData(prev => ({
+          ...prev,
+          endTime: format(endDate, 'HH:mm')
+        }));
+      }
+    }
+  }, [formData.serviceId, formData.startTime, services]);
+
   // Create a new appointment
   const handleCreateAppointment = async () => {
     try {
@@ -242,14 +282,33 @@ export default function AppointmentsPage() {
         return;
       }
 
-      // Create appointment data
+      // Create combined date-time for start and end
+      const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
+      const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
+      
+      // Handle case where end time is on the next day
+      if (endDateTime < startDateTime) {
+        endDateTime.setDate(endDateTime.getDate() + 1);
+      }
+      
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        toast.error('Invalid date or time format');
+        setSubmitting(false);
+        return;
+      }
+
+      // Create appointment data with properly formatted ISO date strings
       const appointmentData: AppointmentCreateData = {
         serviceId: formData.serviceId,
         clientId: clientId,
-        startTime: formData.startTime,
-        notes: formData.notes ? [formData.notes] : []
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        notes: formData.notes ? [formData.notes] : [],
+        userId: user?.id
       };
 
+      console.log('Creating appointment with data:', appointmentData);
+      
       // Submit to API
       const response = await appointmentApi.createAppointment(appointmentData);
       
@@ -261,7 +320,9 @@ export default function AppointmentsPage() {
       setFormData({
         serviceId: '',
         clientId: '',
-        startTime: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        startTime: format(new Date(), 'HH:mm'),
+        endTime: '',
         notes: '',
       });
       setIsCreateModalOpen(false);
@@ -289,14 +350,33 @@ export default function AppointmentsPage() {
         return;
       }
 
+      // Create combined date-time for start and end
+      const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
+      const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
+      
+      // Handle case where end time is on the next day
+      if (endDateTime < startDateTime) {
+        endDateTime.setDate(endDateTime.getDate() + 1);
+      }
+      
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        toast.error('Invalid date or time format');
+        setSubmitting(false);
+        return;
+      }
+
       // Create appointment data
       const appointmentData: Partial<AppointmentCreateData> = {
         serviceId: formData.serviceId,
         clientId: clientId,
-        startTime: formData.startTime,
-        notes: formData.notes ? [formData.notes] : []
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        notes: formData.notes ? [formData.notes] : [],
+        userId: user?.id
       };
 
+      console.log('Updating appointment with data:', appointmentData);
+      
       // Submit to API
       const response = await appointmentApi.updateAppointment(selectedAppointment.id, appointmentData);
       
@@ -378,7 +458,9 @@ export default function AppointmentsPage() {
     setFormData({
       serviceId: appointment.serviceId,
       clientId: appointment.clientId.toString(),
-      startTime: appointment.startTime,
+      date: format(new Date(appointment.startTime), 'yyyy-MM-dd'),
+      startTime: format(new Date(appointment.startTime), 'HH:mm'),
+      endTime: format(new Date(appointment.endTime), 'HH:mm'),
       notes: appointment.notes && appointment.notes.length > 0 ? appointment.notes[0] : ''
     });
     
@@ -396,14 +478,13 @@ export default function AppointmentsPage() {
     // Set the selected date for the form 
     const clickedDate = new Date(info.dateStr);
     
-    // Format the date for the datetime-local input
-    const formattedDate = formatDateForInput(clickedDate);
-    
     // Reset form with selected date
     setFormData({
       serviceId: '',
       clientId: '',
-      startTime: formattedDate,
+      date: format(clickedDate, 'yyyy-MM-dd'),
+      startTime: format(new Date(), 'HH:mm'),
+      endTime: '',
       notes: '',
     });
     
@@ -416,20 +497,20 @@ export default function AppointmentsPage() {
     const appointment = info.event.extendedProps.appointment;
     setSelectedAppointment(appointment);
     
+    const startDateTime = new Date(appointment.startTime);
+    const endDateTime = new Date(appointment.endTime);
+    
     // Set form data based on selected appointment
     setFormData({
       serviceId: appointment.serviceId,
       clientId: appointment.clientId.toString(),
-      startTime: appointment.startTime,
+      date: format(startDateTime, 'yyyy-MM-dd'),
+      startTime: format(startDateTime, 'HH:mm'),
+      endTime: format(endDateTime, 'HH:mm'),
       notes: appointment.notes && appointment.notes.length > 0 ? appointment.notes[0] : ''
     });
     
     setIsEditModalOpen(true);
-  };
-
-  // Format date for datetime-local input
-  const formatDateForInput = (date: Date): string => {
-    return date.toISOString().slice(0, 16);
   };
 
   // Get the service duration for end time calculation
@@ -464,7 +545,9 @@ export default function AppointmentsPage() {
             setFormData({
               serviceId: '',
               clientId: '',
-              startTime: formatDateForInput(new Date()),
+              date: format(new Date(), 'yyyy-MM-dd'),
+              startTime: format(new Date(), 'HH:mm'),
+              endTime: '',
               notes: '',
             });
             setIsCreateModalOpen(true);
@@ -528,18 +611,25 @@ export default function AppointmentsPage() {
                         <div key={appointment.id} className="flex items-center justify-between p-4">
                           <div className="flex items-center space-x-4">
                             <div>
-                              <p className="font-medium">{appointment.client?.name || 'Unknown Client'}</p>
+                              <p className="font-medium">
+                                {appointment.Client ? appointment.Client.name : 'Unknown Client'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {appointment.Service ? appointment.Service.name : 'Unknown Service'}
+                              </p>
                               <div className="flex items-center text-sm text-muted-foreground">
                                 <CalendarIcon className="mr-1 h-3 w-3" />
                                 <span>{format(new Date(appointment.startTime), 'PPP')}</span>
                                 <Clock className="ml-2 mr-1 h-3 w-3" />
                                 <span>{format(new Date(appointment.startTime), 'p')}</span>
-                                <span className="ml-2">({appointment.service?.duration || '??'} mins)</span>
+                                <span className="ml-2">
+                                  ({appointment.Service ? appointment.Service.duration : '??'} mins)
+                                </span>
                               </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Badge variant="outline">{appointment.service?.name || 'Unknown Service'}</Badge>
+                            <Badge variant="outline">{appointment.Service ? appointment.Service.name : 'Unknown Service'}</Badge>
                             <Badge className={appointment.isCancelled ? statusColors.cancelled : statusColors.confirmed}>
                               {appointment.isCancelled ? 'Cancelled' : 'Confirmed'}
                             </Badge>
@@ -697,14 +787,40 @@ export default function AppointmentsPage() {
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startTime" className="text-right">
-                Date & Time
+              <Label htmlFor="date" className="text-right">
+                Date
               </Label>
               <Input
-                type="datetime-local"
+                type="date"
+                id="date"
+                name="date"
+                value={formData.date}
+                onChange={handleFormChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="startTime" className="text-right">
+                Start Time
+              </Label>
+              <Input
+                type="time"
                 id="startTime"
                 name="startTime"
                 value={formData.startTime}
+                onChange={handleFormChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="endTime" className="text-right">
+                End Time
+              </Label>
+              <Input
+                type="time"
+                id="endTime"
+                name="endTime"
+                value={formData.endTime}
                 onChange={handleFormChange}
                 className="col-span-3"
               />
@@ -733,7 +849,7 @@ export default function AppointmentsPage() {
             </Button>
             <Button 
               onClick={handleCreateAppointment}
-              disabled={submitting || !formData.clientId || !formData.serviceId || !formData.startTime}
+              disabled={submitting || !formData.clientId || !formData.serviceId || !formData.date || !formData.startTime || !formData.endTime}
             >
               {submitting ? (
                 <>
@@ -803,14 +919,40 @@ export default function AppointmentsPage() {
               </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startTime" className="text-right">
-                Date & Time
+              <Label htmlFor="date" className="text-right">
+                Date
               </Label>
               <Input
-                type="datetime-local"
+                type="date"
+                id="date"
+                name="date"
+                value={formData.date}
+                onChange={handleFormChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="startTime" className="text-right">
+                Start Time
+              </Label>
+              <Input
+                type="time"
                 id="startTime"
                 name="startTime"
                 value={formData.startTime}
+                onChange={handleFormChange}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="endTime" className="text-right">
+                End Time
+              </Label>
+              <Input
+                type="time"
+                id="endTime"
+                name="endTime"
+                value={formData.endTime}
                 onChange={handleFormChange}
                 className="col-span-3"
               />
@@ -839,7 +981,7 @@ export default function AppointmentsPage() {
             </Button>
             <Button 
               onClick={handleUpdateAppointment}
-              disabled={submitting || !formData.clientId || !formData.serviceId || !formData.startTime}
+              disabled={submitting || !formData.clientId || !formData.serviceId || !formData.date || !formData.startTime || !formData.endTime}
             >
               {submitting ? (
                 <>
