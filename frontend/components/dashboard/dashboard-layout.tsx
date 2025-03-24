@@ -4,11 +4,13 @@ import { useState, ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/app/context/AuthContext';
+import { useTranslation } from '@/app/hooks/useTranslation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AdminPanel } from '@/components/admin-panel';
 
 // Icons
 import {
@@ -24,6 +26,7 @@ import {
   Coffee,
   Bell,
   MessageSquare,
+  User,
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -56,14 +59,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Calendar, label: 'Appointments', href: '/appointments' },
-    { icon: Users, label: 'Clients', href: '/clients' },
-    { icon: Coffee, label: 'Services', href: '/services' },
+    { icon: LayoutDashboard, label: t('navigation.dashboard'), href: '/dashboard' },
+    { icon: Calendar, label: t('navigation.appointments'), href: '/appointments' },
+    { icon: Users, label: t('navigation.clients'), href: '/clients' },
+    { icon: Coffee, label: t('navigation.services'), href: '/services' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
-    { icon: Settings, label: 'Settings', href: '/settings' },
+    { icon: Settings, label: t('navigation.settings'), href: '/settings' },
   ];
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
@@ -92,6 +96,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
           
           <div className="flex items-center gap-4">
+            {/* Admin Panel */}
+            <AdminPanel />
+            
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
               <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-red-500"></span>
@@ -130,12 +137,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="mt-2 grid gap-1">
                     <Link href="/profile">
                       <Button variant="ghost" className="w-full justify-start">
-                        Profile
+                        <User className="mr-2 h-4 w-4" />
+                        {t('navigation.profile')}
                       </Button>
                     </Link>
-                    <Button variant="ghost" className="w-full justify-start text-red-500" onClick={logout}>
+                    <Button 
+                      variant="ghost" 
+                      className="w-full justify-start text-red-500" 
+                      onClick={logout}
+                    >
                       <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
+                      <span>{t('navigation.logout')}</span>
                     </Button>
                   </div>
                 </div>

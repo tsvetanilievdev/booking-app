@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
+import { useTranslation } from '../hooks/useTranslation';
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -20,9 +21,7 @@ export default function AnalyticsPage() {
         const data = await serviceApi.getServiceAnalytics();
         setAnalytics(data);
       } catch (error: any) {
-        toast({
-          variant: 'destructive',
-          title: 'Error fetching analytics',
+        toast.error(t('common.error'), {
           description: error.message || 'Failed to load analytics data',
         });
       } finally {
@@ -31,7 +30,7 @@ export default function AnalyticsPage() {
     };
 
     fetchAnalytics();
-  }, [toast]);
+  }, [t]);
 
   // Format data for charts
   const formatTimeSlotData = () => {
@@ -74,7 +73,7 @@ export default function AnalyticsPage() {
             {/* Revenue Card */}
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Total Revenue</CardDescription>
+                <CardDescription>{t('dashboard.totalRevenue')}</CardDescription>
                 <CardTitle className="text-3xl">
                   {loading ? <Skeleton className="h-8 w-20" /> : `$${analytics?.revenue || 0}`}
                 </CardTitle>
