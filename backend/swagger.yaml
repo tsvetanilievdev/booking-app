@@ -5,10 +5,10 @@ info:
   description: API documentation for the Booking System
   contact:
     name: API Support
-    email: support@example.com
+    email: tsvetanilievdev@gmail.com
 
 servers:
-  - url: http://localhost:3001/api
+  - url: http://localhost:5001/api
     description: Development server
   - url: /api
     description: Production server
@@ -229,18 +229,40 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - serviceId
+                - clientId
+                - startTime
               properties:
                 serviceId:
                   type: string
+                  example: "clg2hf3xt0000jk5j6v9h8j9d"
                 clientId:
                   type: number
+                  example: 123
                 startTime:
                   type: string
                   format: date-time
+                  example: "2025-03-25T10:00:00Z"
                 notes:
                   type: array
                   items:
                     type: string
+                  example: ["Client requested morning appointment", "New client"]
+            examples:
+              appointment:
+                summary: Basic appointment creation
+                value:
+                  serviceId: "clg2hf3xt0000jk5j6v9h8j9d"
+                  clientId: 123
+                  startTime: "2025-03-25T10:00:00Z"
+              appointmentWithNotes:
+                summary: Appointment with notes
+                value:
+                  serviceId: "clg2hf3xt0000jk5j6v9h8j9d"
+                  clientId: 123
+                  startTime: "2025-03-25T10:00:00Z"
+                  notes: ["Client requested morning appointment", "New client"]
       responses:
         '201':
           description: Appointment created
@@ -258,6 +280,311 @@ paths:
                     properties:
                       appointment:
                         $ref: '#/components/schemas/Appointment'
+
+  /appointments/today:
+    get:
+      summary: Get today's appointments
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Today's appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  results:
+                    type: number
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+
+  /appointments/week:
+    get:
+      summary: Get this week's appointments
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: This week's appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  results:
+                    type: number
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+
+  /appointments/month:
+    get:
+      summary: Get this month's appointments
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: This month's appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  results:
+                    type: number
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+
+  /appointments/available-slots:
+    get:
+      summary: Get available time slots
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: serviceId
+          schema:
+            type: string
+          description: ID of the service
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          description: Date to check availability
+      responses:
+        '200':
+          description: Available time slots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      availableSlots:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            startTime:
+                              type: string
+                              format: date-time
+                            endTime:
+                              type: string
+                              format: date-time
+
+  /appointments/client/{clientId}:
+    get:
+      summary: Get client's appointment history
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: clientId
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      responses:
+        '200':
+          description: Client's appointment history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  results:
+                    type: number
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+
+  /appointments/{id}:
+    get:
+      summary: Get appointment by ID
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the appointment
+      responses:
+        '200':
+          description: Appointment details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      appointment:
+                        $ref: '#/components/schemas/Appointment'
+        '404':
+          description: Appointment not found
+    
+    put:
+      summary: Update appointment
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceId:
+                  type: string
+                clientId:
+                  type: number
+                startTime:
+                  type: string
+                  format: date-time
+                notes:
+                  type: array
+                  items:
+                    type: string
+            examples:
+              updateTime:
+                summary: Update appointment time
+                value:
+                  startTime: "2025-03-26T11:00:00Z"
+              updateService:
+                summary: Update appointment service
+                value:
+                  serviceId: "clg2hf3xt0001jk5j6v9h8j9d"
+                  startTime: "2025-03-26T11:00:00Z"
+      responses:
+        '200':
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      appointment:
+                        $ref: '#/components/schemas/Appointment'
+        '404':
+          description: Appointment not found
+    
+    delete:
+      summary: Delete appointment
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the appointment
+      responses:
+        '200':
+          description: Appointment deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '404':
+          description: Appointment not found
+
+  /appointments/{id}/cancel:
+    put:
+      summary: Cancel appointment
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the appointment
+      responses:
+        '200':
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      appointment:
+                        $ref: '#/components/schemas/Appointment'
+        '404':
+          description: Appointment not found
 
   /services:
     get:
@@ -309,6 +636,99 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - name
+                - price
+                - duration
+              properties:
+                name:
+                  type: string
+                  example: "Haircut"
+                price:
+                  type: number
+                  example: 30.00
+                duration:
+                  type: number
+                  example: 45
+                description:
+                  type: string
+                  example: "Basic haircut service"
+                availableDays:
+                  type: array
+                  items:
+                    type: number
+                  example: [1, 2, 3, 4, 5]
+                availableTimeStart:
+                  type: number
+                  example: 9
+                availableTimeEnd:
+                  type: number
+                  example: 17
+            examples:
+              basicService:
+                summary: Basic service
+                value:
+                  name: "Haircut"
+                  price: 30.00
+                  duration: 45
+                  description: "Basic haircut service"
+              fullService:
+                summary: Service with availability
+                value:
+                  name: "Haircut"
+                  price: 30.00
+                  duration: 45
+                  description: "Basic haircut service"
+                  availableDays: [1, 2, 3, 4, 5]
+                  availableTimeStart: 9
+                  availableTimeEnd: 17
+      responses:
+        '201':
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /services/{id}:
+    get:
+      summary: Get service by ID
+      tags: [Services]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the service
+      responses:
+        '200':
+          description: Service details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '404':
+          description: Service not found
+      
+    put:
+      summary: Update service
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 name:
                   type: string
@@ -318,6 +738,8 @@ paths:
                   type: number
                 description:
                   type: string
+                isAvailable:
+                  type: boolean
                 availableDays:
                   type: array
                   items:
@@ -326,13 +748,107 @@ paths:
                   type: number
                 availableTimeEnd:
                   type: number
+            examples:
+              updatePrice:
+                summary: Update service price
+                value:
+                  price: 35.00
+              updateAvailability:
+                summary: Update service availability
+                value:
+                  isAvailable: true
+                  availableDays: [1, 2, 3, 4, 5]
+                  availableTimeStart: 8
+                  availableTimeEnd: 18
       responses:
-        '201':
-          description: Service created
+        '200':
+          description: Service updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Service'
+        '404':
+          description: Service not found
+      
+    delete:
+      summary: Delete service
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the service
+      responses:
+        '200':
+          description: Service deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '404':
+          description: Service not found
+
+  /services/analytics/data:
+    get:
+      summary: Get service analytics
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Service analytics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mostPopular:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        count:
+                          type: number
+                  revenue:
+                    type: object
+                    properties:
+                      total:
+                        type: number
+                      byService:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            name:
+                              type: string
+                            revenue:
+                              type: number
+                  utilization:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        utilization:
+                          type: number
 
   /clients:
     get:
@@ -386,6 +902,115 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                phone:
+                  type: string
+                  example: "+1-555-123-4567"
+                email:
+                  type: string
+                  example: "john.doe@example.com"
+                notes:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Prefers morning appointments", "Allergic to certain products"]
+                preferences:
+                  type: object
+                  example:
+                    preferredStaff: "Jane"
+                    communicationChannel: "email"
+            examples:
+              basicClient:
+                summary: Basic client information
+                value:
+                  name: "John Doe"
+                  phone: "+1-555-123-4567"
+                  email: "john.doe@example.com"
+              detailedClient:
+                summary: Client with notes and preferences
+                value:
+                  name: "John Doe"
+                  phone: "+1-555-123-4567"
+                  email: "john.doe@example.com"
+                  notes: ["Prefers morning appointments", "Allergic to certain products"]
+                  preferences:
+                    preferredStaff: "Jane"
+                    communicationChannel: "email"
+      responses:
+        '201':
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+
+  /clients/vip:
+    get:
+      summary: Get VIP clients
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of VIP clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+                  total:
+                    type: number
+
+  /clients/{id}:
+    get:
+      summary: Get client by ID
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      responses:
+        '200':
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+    
+    put:
+      summary: Update client
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 name:
                   type: string
@@ -397,12 +1022,299 @@ paths:
                   type: array
                   items:
                     type: string
-                preferences:
-                  type: object
+            examples:
+              updateContact:
+                summary: Update client contact information
+                value:
+                  phone: "+1-555-987-6543"
+                  email: "updated.email@example.com"
       responses:
-        '201':
-          description: Client created
+        '200':
+          description: Client updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Client' 
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+    
+    delete:
+      summary: Delete client
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      responses:
+        '200':
+          description: Client deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '404':
+          description: Client not found
+
+  /clients/{id}/preferences:
+    put:
+      summary: Update client preferences
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferences:
+                  type: object
+            examples:
+              updatePreferences:
+                summary: Update client preferences
+                value:
+                  preferences:
+                    preferredStaff: "John"
+                    communicationChannel: "sms"
+                    reminderTime: 24
+      responses:
+        '200':
+          description: Client preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+
+  /clients/{id}/vip:
+    put:
+      summary: Update client VIP status
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isVip:
+                  type: boolean
+            examples:
+              enableVip:
+                summary: Enable VIP status
+                value:
+                  isVip: true
+              disableVip:
+                summary: Disable VIP status
+                value:
+                  isVip: false
+      responses:
+        '200':
+          description: Client VIP status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client'
+        '404':
+          description: Client not found
+
+  /users:
+    get:
+      summary: Get current user information
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    
+    put:
+      summary: Update user information
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+            examples:
+              updateName:
+                summary: Update user name
+                value:
+                  name: "Jane Doe"
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    
+    delete:
+      summary: Delete user account
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+
+  /notifications:
+    get:
+      summary: Get all notifications for the current user
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      notifications:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            type:
+                              type: string
+                            message:
+                              type: string
+                            isRead:
+                              type: boolean
+                            createdAt:
+                              type: string
+                              format: date-time
+                            meta:
+                              type: object
+
+  /notifications/unread-count:
+    get:
+      summary: Get count of unread notifications
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Count of unread notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: number
+
+  /notifications/{id}/read:
+    put:
+      summary: Mark a notification as read
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID of the notification
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '404':
+          description: Notification not found
+
+  /notifications/read-all:
+    put:
+      summary: Mark all notifications as read
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: number 
