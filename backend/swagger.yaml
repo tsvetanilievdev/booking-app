@@ -1,0 +1,408 @@
+openapi: 3.0.0
+info:
+  title: Booking System API
+  version: 1.0.0
+  description: API documentation for the Booking System
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3001/api
+    description: Development server
+  - url: /api
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [USER, ADMIN]
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        serviceId:
+          type: string
+        clientId:
+          type: number
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        notes:
+          type: array
+          items:
+            type: string
+        isCancelled:
+          type: boolean
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        duration:
+          type: number
+        description:
+          type: string
+        isAvailable:
+          type: boolean
+        availableDays:
+          type: array
+          items:
+            type: number
+        availableTimeStart:
+          type: number
+        availableTimeEnd:
+          type: number
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        notes:
+          type: array
+          items:
+            type: string
+        preferences:
+          type: object
+        isVip:
+          type: boolean
+        attendanceRate:
+          type: number
+        lastVisit:
+          type: string
+          format: date-time
+        totalVisits:
+          type: number
+        totalSpent:
+          type: number
+
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      summary: User registration
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+
+  /appointments:
+    get:
+      summary: List appointments
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: start
+          schema:
+            type: string
+            format: date-time
+          description: Start date filter
+        - in: query
+          name: end
+          schema:
+            type: string
+            format: date-time
+          description: End date filter
+        - in: query
+          name: status
+          schema:
+            type: string
+          description: Appointment status filter
+      responses:
+        '200':
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  results:
+                    type: number
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+
+    post:
+      summary: Create appointment
+      tags: [Appointments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceId:
+                  type: string
+                clientId:
+                  type: number
+                startTime:
+                  type: string
+                  format: date-time
+                notes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      appointment:
+                        $ref: '#/components/schemas/Appointment'
+
+  /services:
+    get:
+      summary: List services
+      tags: [Services]
+      parameters:
+        - in: query
+          name: available
+          schema:
+            type: boolean
+          description: Filter by availability
+        - in: query
+          name: page
+          schema:
+            type: number
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: number
+          description: Items per page
+      responses:
+        '200':
+          description: List of services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Service'
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  limit:
+                    type: number
+
+    post:
+      summary: Create service
+      tags: [Services]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                price:
+                  type: number
+                duration:
+                  type: number
+                description:
+                  type: string
+                availableDays:
+                  type: array
+                  items:
+                    type: number
+                availableTimeStart:
+                  type: number
+                availableTimeEnd:
+                  type: number
+      responses:
+        '201':
+          description: Service created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /clients:
+    get:
+      summary: List clients
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term
+        - in: query
+          name: page
+          schema:
+            type: number
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: number
+          description: Items per page
+      responses:
+        '200':
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Client'
+                  total:
+                    type: number
+                  page:
+                    type: number
+                  limit:
+                    type: number
+
+    post:
+      summary: Create client
+      tags: [Clients]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                notes:
+                  type: array
+                  items:
+                    type: string
+                preferences:
+                  type: object
+      responses:
+        '201':
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Client' 
