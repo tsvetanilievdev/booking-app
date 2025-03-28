@@ -73,6 +73,89 @@ export default function AppointmentsPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
+  // Client search states
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientOpen, setClientOpen] = useState(false);
+  
+  // Service search states
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [serviceOpen, setServiceOpen] = useState(false);
+  
+  // Separate client and service open states for create and edit modals
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [createServiceOpen, setCreateServiceOpen] = useState(false);
+  const [editClientOpen, setEditClientOpen] = useState(false);
+  const [editServiceOpen, setEditServiceOpen] = useState(false);
+  
+  // Get today's date for date validation
+  const today = format(new Date(), 'yyyy-MM-dd');
+  
+  // Generate time slots in 5-minute intervals
+  const generateTimeSlots = () => {
+    const timeSlots = [];
+    // Only include hours from 6:00 to 22:00 (excluding 22:00)
+    for (let hour = 6; hour < 22; hour++) {
+      for (let minute = 0; minute < 60; minute += 5) {
+        const formattedHour = hour.toString().padStart(2, '0');
+        const formattedMinute = minute.toString().padStart(2, '0');
+        timeSlots.push(`${formattedHour}:${formattedMinute}`);
+      }
+    }
+    return timeSlots;
+  };
+  
+  const timeSlots = generateTimeSlots();
+
+  // Filter out already booked time slots for the selected date
+  const getAvailableTimeSlots = (selectedDate: string, editingAppointmentId?: string) => {
+    // If no date is selected, return all time slots
+    if (!selectedDate) return timeSlots;
+    
+    // Create a copy of all time slots
+    const availableSlots = [...timeSlots];
+    
+    // Get the appointments for the selected date
+    const dateAppointments = appointments.filter(appointment => {
+      // Skip the current appointment being edited
+      if (editingAppointmentId && appointment.id === editingAppointmentId) {
+        return false;
+      }
+      
+      const appointmentDate = format(new Date(appointment.startTime), 'yyyy-MM-dd');
+      return appointmentDate === selectedDate && !appointment.isCancelled;
+    });
+    
+    if (dateAppointments.length === 0) return availableSlots;
+    
+    // Find booked time slots
+    const bookedTimeSlots = new Set<string>();
+    
+    dateAppointments.forEach(appointment => {
+      const startTime = new Date(appointment.startTime);
+      const endTime = new Date(appointment.endTime);
+      
+      // Get time ranges
+      const startHour = startTime.getHours();
+      const startMinute = startTime.getMinutes();
+      const endHour = endTime.getHours();
+      const endMinute = endTime.getMinutes();
+      
+      // Mark all time slots within this appointment as booked
+      availableSlots.forEach(timeSlot => {
+        const [hour, minute] = timeSlot.split(':').map(Number);
+        
+        // Check if this time slot is within the appointment time range
+        if ((hour > startHour || (hour === startHour && minute >= startMinute)) &&
+            (hour < endHour || (hour === endHour && minute < endMinute))) {
+          bookedTimeSlots.add(timeSlot);
+        }
+      });
+    });
+    
+    // Filter out booked time slots
+    return availableSlots.filter(slot => !bookedTimeSlots.has(slot));
+  };
+
   // Form state for new appointment
   const [formData, setFormData] = useState<{
     serviceId: string;
@@ -282,27 +365,40 @@ export default function AppointmentsPage() {
         return;
       }
 
-      // Create combined date-time for start and end
-      const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
+      // Create proper date objects with timezone consideration
+      const [year, month, day] = formData.date.split('-').map(Number);
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+      
+      // Create Date objects (month is 0-indexed in JavaScript Date)
+      const startDateTime = new Date(year, month - 1, day, startHours, startMinutes);
+      const endDateTime = new Date(year, month - 1, day, endHours, endMinutes);
+      
+      // Check if the appointment time is in the past
+      const now = new Date();
+      if (startDateTime <= now) {
+        toast.error('Appointment time must be in the future');
+        setSubmitting(false);
+        return;
+      }
       
       // Handle case where end time is on the next day
       if (endDateTime < startDateTime) {
         endDateTime.setDate(endDateTime.getDate() + 1);
       }
       
-      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-        toast.error('Invalid date or time format');
-        setSubmitting(false);
-        return;
-      }
-
+      console.log('Appointment times (local):', { 
+        startDateTime: startDateTime.toString(),
+        endDateTime: endDateTime.toString(),
+        now: now.toString()
+      });
+      
       // Create appointment data with properly formatted ISO date strings
       const appointmentData: AppointmentCreateData = {
         serviceId: formData.serviceId,
         clientId: clientId,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
+        startTime: startDateTime.toISOString(), // Includes timezone info
+        endTime: endDateTime.toISOString(),     // Includes timezone info
         notes: formData.notes ? [formData.notes] : [],
         userId: user?.id
       };
@@ -328,9 +424,14 @@ export default function AppointmentsPage() {
       setIsCreateModalOpen(false);
       
       setSubmitting(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating appointment:', error);
-      toast.error('Failed to create appointment');
+      if (error.response?.data?.error?.message) {
+        // Display the specific error message from the server
+        toast.error(`Error: ${error.response.data.error.message}`);
+      } else {
+        toast.error('Failed to create appointment');
+      }
       setSubmitting(false);
     }
   };
@@ -350,27 +451,40 @@ export default function AppointmentsPage() {
         return;
       }
 
-      // Create combined date-time for start and end
-      const startDateTime = new Date(`${formData.date}T${formData.startTime}`);
-      const endDateTime = new Date(`${formData.date}T${formData.endTime}`);
+      // Create proper date objects with timezone consideration
+      const [year, month, day] = formData.date.split('-').map(Number);
+      const [startHours, startMinutes] = formData.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = formData.endTime.split(':').map(Number);
+      
+      // Create Date objects (month is 0-indexed in JavaScript Date)
+      const startDateTime = new Date(year, month - 1, day, startHours, startMinutes);
+      const endDateTime = new Date(year, month - 1, day, endHours, endMinutes);
+      
+      // Check if the appointment time is in the past
+      const now = new Date();
+      if (startDateTime <= now) {
+        toast.error('Appointment time must be in the future');
+        setSubmitting(false);
+        return;
+      }
       
       // Handle case where end time is on the next day
       if (endDateTime < startDateTime) {
         endDateTime.setDate(endDateTime.getDate() + 1);
       }
       
-      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-        toast.error('Invalid date or time format');
-        setSubmitting(false);
-        return;
-      }
+      console.log('Updated appointment times (local):', { 
+        startDateTime: startDateTime.toString(),
+        endDateTime: endDateTime.toString(),
+        now: now.toString()
+      });
 
-      // Create appointment data
+      // Create appointment data with properly formatted ISO date strings
       const appointmentData: Partial<AppointmentCreateData> = {
         serviceId: formData.serviceId,
         clientId: clientId,
-        startTime: startDateTime.toISOString(),
-        endTime: endDateTime.toISOString(),
+        startTime: startDateTime.toISOString(), // Includes timezone info
+        endTime: endDateTime.toISOString(),     // Includes timezone info
         notes: formData.notes ? [formData.notes] : [],
         userId: user?.id
       };
@@ -393,9 +507,14 @@ export default function AppointmentsPage() {
       setIsEditModalOpen(false);
       
       setSubmitting(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating appointment:', error);
-      toast.error('Failed to update appointment');
+      if (error.response?.data?.error?.message) {
+        // Display the specific error message from the server
+        toast.error(`Error: ${error.response.data.error.message}`);
+      } else {
+        toast.error('Failed to update appointment');
+      }
       setSubmitting(false);
     }
   };
@@ -519,6 +638,40 @@ export default function AppointmentsPage() {
     return service ? service.duration : 60; // Default to 60 minutes if not found
   };
 
+  // Generate filtered clients based on search - improve search to be more flexible
+  const filteredClients = clients
+    ? clients.filter(client => {
+        const searchLower = clientSearch.toLowerCase().trim();
+        if (!searchLower) return true; // Show all when search is empty
+        
+        return (
+          client.name.toLowerCase().includes(searchLower) ||
+          (client.email && client.email.toLowerCase().includes(searchLower)) ||
+          (client.phone && client.phone.toLowerCase().includes(searchLower))
+        );
+      })
+    : [];
+    
+  // Generate filtered services based on search - improve search to be more flexible
+  const filteredServices = services
+    ? services.filter(service => {
+        const searchLower = serviceSearch.toLowerCase().trim();
+        if (!searchLower) return true; // Show all when search is empty
+        
+        return (
+          service.name.toLowerCase().includes(searchLower) ||
+          (service.description && service.description.toLowerCase().includes(searchLower))
+        );
+      })
+    : [];
+
+  // Client and service selection debug logs
+  useEffect(() => {
+    console.log("Current formData:", formData);
+    console.log("Available clients:", clients);
+    console.log("Available services:", services);
+  }, [formData, clients, services]);
+
   if (authLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
@@ -557,7 +710,7 @@ export default function AppointmentsPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="calendar" className="space-y-4">
+        <Tabs defaultValue="list" className="space-y-4">
           <TabsList>
             <TabsTrigger value="list">List View</TabsTrigger>
             <TabsTrigger value="calendar">Calendar View</TabsTrigger>
@@ -605,34 +758,34 @@ export default function AppointmentsPage() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <div className="divide-y">
-                    {filteredAppointments.length > 0 ? (
-                      filteredAppointments.map((appointment) => (
-                        <div key={appointment.id} className="flex items-center justify-between p-4">
-                          <div className="flex items-center space-x-4">
-                            <div>
+                <div className="divide-y">
+                  {filteredAppointments.length > 0 ? (
+                    filteredAppointments.map((appointment) => (
+                      <div key={appointment.id} className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-4">
+                          <div>
                               <p className="font-medium">
                                 {appointment.Client ? appointment.Client.name : 'Unknown Client'}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 {appointment.Service ? appointment.Service.name : 'Unknown Service'}
                               </p>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <CalendarIcon className="mr-1 h-3 w-3" />
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <CalendarIcon className="mr-1 h-3 w-3" />
                                 <span>{format(new Date(appointment.startTime), 'PPP')}</span>
-                                <Clock className="ml-2 mr-1 h-3 w-3" />
+                              <Clock className="ml-2 mr-1 h-3 w-3" />
                                 <span>{format(new Date(appointment.startTime), 'p')}</span>
                                 <span className="ml-2">
                                   ({appointment.Service ? appointment.Service.duration : '??'} mins)
                                 </span>
-                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
+                        </div>
+                        <div className="flex items-center space-x-2">
                             <Badge variant="outline">{appointment.Service ? appointment.Service.name : 'Unknown Service'}</Badge>
                             <Badge className={appointment.isCancelled ? statusColors.cancelled : statusColors.confirmed}>
                               {appointment.isCancelled ? 'Cancelled' : 'Confirmed'}
-                            </Badge>
+                          </Badge>
                             <div className="flex space-x-1">
                               <Button variant="ghost" size="icon" onClick={() => openEditModal(appointment)}>
                                 <Edit className="h-4 w-4" />
@@ -644,21 +797,21 @@ export default function AppointmentsPage() {
                               )}
                               <Button variant="ghost" size="icon" onClick={() => openDeleteModal(appointment)}>
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                          </Button>
                             </div>
-                          </div>
                         </div>
-                      ))
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-8 text-center">
-                        <CalendarIcon className="mb-2 h-10 w-10 text-muted-foreground" />
-                        <h3 className="text-lg font-medium">No appointments found</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Try adjusting your filters or search to find what you're looking for.
-                        </p>
                       </div>
-                    )}
-                  </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 text-center">
+                        <CalendarIcon className="mb-2 h-10 w-10 text-muted-foreground" />
+                      <h3 className="text-lg font-medium">No appointments found</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Try adjusting your filters or search to find what you're looking for.
+                      </p>
+                    </div>
+                  )}
+                </div>
                 )}
               </CardContent>
             </Card>
@@ -679,14 +832,54 @@ export default function AppointmentsPage() {
                   </div>
                 ) : (
                   <div className="calendar-container">
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => calendarRef.current?.getApi().changeView('dayGridMonth')}
+                        >
+                          Month
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => calendarRef.current?.getApi().changeView('timeGridWeek')}
+                        >
+                          Week
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => calendarRef.current?.getApi().changeView('timeGridDay')}
+                        >
+                          Day
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => calendarRef.current?.getApi().prev()}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                          </svg>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => calendarRef.current?.getApi().today()}>
+                          Today
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => calendarRef.current?.getApi().next()}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                          </svg>
+                        </Button>
+                      </div>
+                              </div>
                     <FullCalendar
                       ref={calendarRef}
                       plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
                       initialView="timeGridWeek"
                       headerToolbar={{
-                        left: 'prev,next today',
+                        left: '',
                         center: 'title',
-                        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+                        right: ''
                       }}
                       events={calendarEvents}
                       height="700px"
@@ -716,7 +909,7 @@ export default function AppointmentsPage() {
                             <div className="text-xs">
                               {format(eventInfo.event.start!, 'h:mm a')} - 
                               {format(eventInfo.event.end!, 'h:mm a')}
-                            </div>
+                              </div>
                             <div className="text-xs capitalize">
                               {status}
                             </div>
@@ -747,19 +940,39 @@ export default function AppointmentsPage() {
                 Client
               </Label>
               <div className="col-span-3">
-                <Select 
-                  value={formData.clientId} 
-                  onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
+                <Select
+                  value={formData.clientId}
+                  onValueChange={(value) => {
+                    console.log("Client selected:", value);
+                    setFormData(prev => ({...prev, clientId: value}));
+                  }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select client" />
+                    <SelectValue placeholder="Select client..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {clients.map(client => (
-                      <SelectItem key={client.id} value={client.id.toString()}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search clients..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="mb-2"
+                      />
+                    </div>
+                    {filteredClients.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No clients found
+                      </div>
+                    ) : (
+                      filteredClients.map(client => (
+                        <SelectItem key={client.id} value={client.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{client.name}</span>
+                            {client.email && <span className="text-xs text-muted-foreground">{client.email}</span>}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -769,19 +982,57 @@ export default function AppointmentsPage() {
                 Service
               </Label>
               <div className="col-span-3">
-                <Select 
-                  value={formData.serviceId} 
-                  onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
+                <Select
+                  value={formData.serviceId}
+                  onValueChange={(value) => {
+                    console.log("Service selected:", value);
+                    setFormData(prev => {
+                      const newState = {...prev, serviceId: value};
+                      
+                      // Auto-calculate end time when service is selected if start time exists
+                      if (newState.startTime) {
+                        const selectedService = services.find(s => s.id === value);
+                        if (selectedService) {
+                          const [hours, minutes] = newState.startTime.split(':').map(Number);
+                          const startDate = new Date();
+                          startDate.setHours(hours, minutes, 0, 0);
+                          
+                          const endDate = new Date(startDate.getTime() + selectedService.duration * 60000);
+                          newState.endTime = format(endDate, 'HH:mm');
+                        }
+                      }
+                      
+                      console.log("New form data after service selection:", newState);
+                      return newState;
+                    });
+                  }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select service" />
+                    <SelectValue placeholder="Select service..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {services.map(service => (
-                      <SelectItem key={service.id} value={service.id}>
-                        {service.name} ({service.duration} mins)
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search services..."
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                        className="mb-2"
+                      />
+                    </div>
+                    {filteredServices.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No services found
+                      </div>
+                    ) : (
+                      filteredServices.map(service => (
+                        <SelectItem key={service.id} value={service.id}>
+                          <div className="flex justify-between w-full">
+                            <span>{service.name}</span>
+                            <span className="text-xs text-muted-foreground">{service.duration} mins</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -795,7 +1046,17 @@ export default function AppointmentsPage() {
                 id="date"
                 name="date"
                 value={formData.date}
-                onChange={handleFormChange}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setFormData(prev => ({
+                    ...prev, 
+                    date: newDate,
+                    // Reset times when date changes
+                    startTime: '',
+                    endTime: ''
+                  }));
+                }}
+                min={today} // Prevent selecting past dates
                 className="col-span-3"
               />
             </div>
@@ -803,27 +1064,62 @@ export default function AppointmentsPage() {
               <Label htmlFor="startTime" className="text-right">
                 Start Time
               </Label>
-              <Input
-                type="time"
-                id="startTime"
-                name="startTime"
-                value={formData.startTime}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
+              <div className="col-span-3">
+                <Select 
+                  value={formData.startTime} 
+                  onValueChange={(value) => {
+                    // Auto-calculate end time when start time changes if service is selected
+                    setFormData(prev => {
+                      const newState = {...prev, startTime: value};
+                      if (newState.serviceId) {
+                        const selectedService = services.find(s => s.id === newState.serviceId);
+                        if (selectedService) {
+                          const [hours, minutes] = value.split(':').map(Number);
+                          const startDate = new Date();
+                          startDate.setHours(hours, minutes, 0, 0);
+                          
+                          const endDate = new Date(startDate.getTime() + selectedService.duration * 60000);
+                          newState.endTime = format(endDate, 'HH:mm');
+                        }
+                      }
+                      return newState;
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select start time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {getAvailableTimeSlots(formData.date).map(time => (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="endTime" className="text-right">
                 End Time
               </Label>
-              <Input
-                type="time"
-                id="endTime"
-                name="endTime"
-                value={formData.endTime}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
+              <div className="col-span-3">
+                <Select 
+                  value={formData.endTime} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, endTime: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select end time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {getAvailableTimeSlots(formData.date).map(time => (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="notes" className="text-right">
@@ -879,19 +1175,39 @@ export default function AppointmentsPage() {
                 Client
               </Label>
               <div className="col-span-3">
-                <Select 
-                  value={formData.clientId} 
-                  onValueChange={(value) => setFormData(prev => ({...prev, clientId: value}))}
+                <Select
+                  value={formData.clientId}
+                  onValueChange={(value) => {
+                    console.log("Edit modal: Client selected:", value);
+                    setFormData(prev => ({...prev, clientId: value}));
+                  }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select client" />
+                    <SelectValue placeholder="Select client..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {clients.map(client => (
-                      <SelectItem key={client.id} value={client.id.toString()}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search clients..."
+                        value={clientSearch}
+                        onChange={(e) => setClientSearch(e.target.value)}
+                        className="mb-2"
+                      />
+                    </div>
+                    {filteredClients.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No clients found
+                      </div>
+                    ) : (
+                      filteredClients.map(client => (
+                        <SelectItem key={client.id} value={client.id.toString()}>
+                          <div className="flex flex-col">
+                            <span>{client.name}</span>
+                            {client.email && <span className="text-xs text-muted-foreground">{client.email}</span>}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -901,19 +1217,57 @@ export default function AppointmentsPage() {
                 Service
               </Label>
               <div className="col-span-3">
-                <Select 
-                  value={formData.serviceId} 
-                  onValueChange={(value) => setFormData(prev => ({...prev, serviceId: value}))}
+                <Select
+                  value={formData.serviceId}
+                  onValueChange={(value) => {
+                    console.log("Edit modal: Service selected:", value);
+                    setFormData(prev => {
+                      const newState = {...prev, serviceId: value};
+                      
+                      // Auto-calculate end time when service is selected if start time exists
+                      if (newState.startTime) {
+                        const selectedService = services.find(s => s.id === value);
+                        if (selectedService) {
+                          const [hours, minutes] = newState.startTime.split(':').map(Number);
+                          const startDate = new Date();
+                          startDate.setHours(hours, minutes, 0, 0);
+                          
+                          const endDate = new Date(startDate.getTime() + selectedService.duration * 60000);
+                          newState.endTime = format(endDate, 'HH:mm');
+                        }
+                      }
+                      
+                      console.log("Edit modal: New form data after service selection:", newState);
+                      return newState;
+                    });
+                  }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select service" />
+                    <SelectValue placeholder="Select service..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    {services.map(service => (
-                      <SelectItem key={service.id} value={service.id}>
-                        {service.name} ({service.duration} mins)
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-[300px]">
+                    <div className="p-2">
+                      <Input
+                        placeholder="Search services..."
+                        value={serviceSearch}
+                        onChange={(e) => setServiceSearch(e.target.value)}
+                        className="mb-2"
+                      />
+                    </div>
+                    {filteredServices.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No services found
+                      </div>
+                    ) : (
+                      filteredServices.map(service => (
+                        <SelectItem key={service.id} value={service.id}>
+                          <div className="flex justify-between w-full">
+                            <span>{service.name}</span>
+                            <span className="text-xs text-muted-foreground">{service.duration} mins</span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -927,7 +1281,17 @@ export default function AppointmentsPage() {
                 id="date"
                 name="date"
                 value={formData.date}
-                onChange={handleFormChange}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setFormData(prev => ({
+                    ...prev, 
+                    date: newDate,
+                    // Reset times when date changes
+                    startTime: '',
+                    endTime: ''
+                  }));
+                }}
+                min={today} // Prevent selecting past dates
                 className="col-span-3"
               />
             </div>
@@ -935,27 +1299,62 @@ export default function AppointmentsPage() {
               <Label htmlFor="startTime" className="text-right">
                 Start Time
               </Label>
-              <Input
-                type="time"
-                id="startTime"
-                name="startTime"
-                value={formData.startTime}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
+              <div className="col-span-3">
+                <Select 
+                  value={formData.startTime} 
+                  onValueChange={(value) => {
+                    // Auto-calculate end time when start time changes if service is selected
+                    setFormData(prev => {
+                      const newState = {...prev, startTime: value};
+                      if (newState.serviceId) {
+                        const selectedService = services.find(s => s.id === newState.serviceId);
+                        if (selectedService) {
+                          const [hours, minutes] = value.split(':').map(Number);
+                          const startDate = new Date();
+                          startDate.setHours(hours, minutes, 0, 0);
+                          
+                          const endDate = new Date(startDate.getTime() + selectedService.duration * 60000);
+                          newState.endTime = format(endDate, 'HH:mm');
+                        }
+                      }
+                      return newState;
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select start time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {getAvailableTimeSlots(formData.date, selectedAppointment?.id).map(time => (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="endTime" className="text-right">
                 End Time
               </Label>
-              <Input
-                type="time"
-                id="endTime"
-                name="endTime"
-                value={formData.endTime}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
+              <div className="col-span-3">
+                <Select 
+                  value={formData.endTime} 
+                  onValueChange={(value) => setFormData(prev => ({...prev, endTime: value}))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select end time" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {getAvailableTimeSlots(formData.date, selectedAppointment?.id).map(time => (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="notes" className="text-right">

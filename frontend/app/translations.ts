@@ -20,14 +20,20 @@ export type TranslationSchema = {
       settings: string;
       profile: string;
       logout: string;
+      analytics: string;
+      adminPanel: string;
     };
     admin: {
+      title: string;
+      settings: string;
       adminPanel: string;
       language: string;
       languageSettings: string;
       changeLanguage: string;
       currentLanguage: string;
+      chooseLanguage: string;
       userManagement: string;
+      users: string;
       statistics: string;
       english: string;
       bulgarian: string;
@@ -39,6 +45,17 @@ export type TranslationSchema = {
       totalClients: string;
       totalRevenue: string;
       viewAll: string;
+      businessSnapshot: string;
+      scheduledForToday: string;
+      next7Days: string;
+      registeredClients: string;
+      revenue: string;
+      todaysSchedule: string;
+      loadingSchedule: string;
+      noAppointmentsToday: string;
+      scheduleIsClear: string;
+      noUpcomingAppointments: string;
+      scheduleIsClearForWeek: string;
     };
     appointments: {
       newAppointment: string;
@@ -68,7 +85,21 @@ export type TranslationSchema = {
       price: string;
       description: string;
     };
+    analytics: {
+      overview: string;
+      timeSlots: string;
+      revenue: string;
+      totalBookings: string;
+      customerSatisfaction: string;
+      totalAppointmentsBooked: string;
+      revenueFromAllBookings: string;
+    };
   };
+};
+
+export const languages = {
+  en: 'English',
+  bg: 'Български',
 };
 
 export const translations: TranslationSchema = {
@@ -91,14 +122,20 @@ export const translations: TranslationSchema = {
       settings: 'Settings',
       profile: 'Profile',
       logout: 'Log out',
+      analytics: 'Analytics',
+      adminPanel: 'Admin Panel',
     },
     admin: {
+      title: 'Admin Panel',
+      settings: 'Manage system settings and user access',
       adminPanel: 'Admin Panel',
       language: 'Language',
       languageSettings: 'Language Settings',
       changeLanguage: 'Change Language',
       currentLanguage: 'Current Language',
+      chooseLanguage: 'Choose Language',
       userManagement: 'User Management',
+      users: 'Users',
       statistics: 'Statistics',
       english: 'English',
       bulgarian: 'Bulgarian',
@@ -110,6 +147,17 @@ export const translations: TranslationSchema = {
       totalClients: 'Total Clients',
       totalRevenue: 'Total Revenue',
       viewAll: 'View All',
+      businessSnapshot: 'Business Snapshot',
+      scheduledForToday: 'Scheduled for today',
+      next7Days: 'Next 7 days',
+      registeredClients: 'Registered clients',
+      revenue: 'Revenue',
+      todaysSchedule: "Today's Schedule",
+      loadingSchedule: 'Loading schedule...',
+      noAppointmentsToday: 'No appointments today',
+      scheduleIsClear: 'Your schedule is clear for the day',
+      noUpcomingAppointments: 'No upcoming appointments',
+      scheduleIsClearForWeek: 'Your schedule is clear for the week',
     },
     appointments: {
       newAppointment: 'New Appointment',
@@ -139,6 +187,15 @@ export const translations: TranslationSchema = {
       price: 'Price',
       description: 'Description',
     },
+    analytics: {
+      overview: 'Overview',
+      timeSlots: 'Time Slots',
+      revenue: 'Revenue',
+      totalBookings: 'Total Bookings',
+      customerSatisfaction: 'Customer Satisfaction',
+      totalAppointmentsBooked: 'Total appointments booked',
+      revenueFromAllBookings: 'Revenue from all bookings',
+    },
   },
   bg: {
     common: {
@@ -159,14 +216,20 @@ export const translations: TranslationSchema = {
       settings: 'Настройки',
       profile: 'Профил',
       logout: 'Изход',
+      analytics: 'Анализи',
+      adminPanel: 'Админ Панел',
     },
     admin: {
+      title: 'Админ Панел',
+      settings: 'Управление на системни настройки и потребителски достъп',
       adminPanel: 'Админ Панел',
       language: 'Език',
       languageSettings: 'Езикови Настройки',
       changeLanguage: 'Смяна на Език',
       currentLanguage: 'Текущ Език',
+      chooseLanguage: 'Избери Език',
       userManagement: 'Управление на Потребители',
+      users: 'Потребители',
       statistics: 'Статистика',
       english: 'Английски',
       bulgarian: 'Български',
@@ -178,6 +241,17 @@ export const translations: TranslationSchema = {
       totalClients: 'Общо Клиенти',
       totalRevenue: 'Общи Приходи',
       viewAll: 'Виж Всички',
+      businessSnapshot: 'Бизнес Статистика',
+      scheduledForToday: 'Планирани за днес',
+      next7Days: 'Следващите 7 дни',
+      registeredClients: 'Регистрирани клиенти',
+      revenue: 'Приходи',
+      todaysSchedule: 'Дневен График',
+      loadingSchedule: 'Зареждане на графика...',
+      noAppointmentsToday: 'Няма резервации днес',
+      scheduleIsClear: 'Графикът ви е свободен за деня',
+      noUpcomingAppointments: 'Няма предстоящи резервации',
+      scheduleIsClearForWeek: 'Графикът ви е свободен за седмицата',
     },
     appointments: {
       newAppointment: 'Нова Резервация',
@@ -206,6 +280,15 @@ export const translations: TranslationSchema = {
       duration: 'Продължителност',
       price: 'Цена',
       description: 'Описание',
+    },
+    analytics: {
+      overview: 'Общ Преглед',
+      timeSlots: 'Времеви Слотове',
+      revenue: 'Приходи',
+      totalBookings: 'Общо Резервации',
+      customerSatisfaction: 'Удовлетвореност на Клиентите',
+      totalAppointmentsBooked: 'Общо направени резервации',
+      revenueFromAllBookings: 'Приходи от всички резервации',
     },
   },
 }; 

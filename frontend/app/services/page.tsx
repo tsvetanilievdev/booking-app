@@ -119,7 +119,7 @@ export default function ServicesPage() {
 
   // Filter services based on search query and active tab
   const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          service.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = activeTab === 'all' || 
                       (activeTab === 'available' && service.isAvailable) ||
@@ -304,7 +304,7 @@ export default function ServicesPage() {
   if (!isAuthenticated) {
     return null; // Will redirect in useEffect
   }
-  
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -327,9 +327,9 @@ export default function ServicesPage() {
             });
             setIsAddServiceOpen(true);
           }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Service
-          </Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Service
+              </Button>
         </div>
 
         <Tabs defaultValue="all" className="space-y-4" onValueChange={setActiveTab}>
@@ -340,22 +340,22 @@ export default function ServicesPage() {
               <TabsTrigger value="unavailable">Unavailable</TabsTrigger>
             </TabsList>
             <div className="relative w-full max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search services..."
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search services..."
                 className="w-full pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
           </div>
           
           <TabsContent value="all" className="space-y-4">
             {loading ? (
               <div className="flex justify-center items-center p-16">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+                    </div>
             ) : filteredServices.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredServices.map((service) => (
@@ -397,7 +397,7 @@ export default function ServicesPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </div>
+                  </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="font-normal">
                           ${service.price}
@@ -410,8 +410,8 @@ export default function ServicesPage() {
                             Unavailable
                           </Badge>
                         )}
-                      </div>
-                    </CardHeader>
+                </div>
+              </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {service.description}
@@ -435,11 +435,11 @@ export default function ServicesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center p-16 text-center">
                 <Grid3X3 className="mb-2 h-10 w-10 text-muted-foreground" />
-                <h3 className="text-lg font-medium">No services found</h3>
-                <p className="text-sm text-muted-foreground">
+                    <h3 className="text-lg font-medium">No services found</h3>
+                    <p className="text-sm text-muted-foreground">
                   Try adjusting your search to find what you're looking for.
-                </p>
-              </div>
+                    </p>
+                  </div>
             )}
           </TabsContent>
           
@@ -450,36 +450,36 @@ export default function ServicesPage() {
               </div>
             ) : filteredServices.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredServices.map((service) => (
+                    {filteredServices.map((service) => (
                   <Card key={service.id}>
-                    <CardHeader className="pb-2">
+                        <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-xl">{service.name}</CardTitle>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
                               <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => openEditModal(service)}>
-                              <Edit className="mr-2 h-4 w-4" />
+                                <Edit className="mr-2 h-4 w-4" />
                               <span>Edit Service</span>
-                            </DropdownMenuItem>
+                              </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleAvailability(service)}>
                               <X className="mr-2 h-4 w-4" />
                               <span>Mark as Unavailable</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => openDeleteModal(service)} className="text-red-600">
-                              <Trash className="mr-2 h-4 w-4" />
+                                <Trash className="mr-2 h-4 w-4" />
                               <span>Delete Service</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="font-normal">
@@ -506,11 +506,11 @@ export default function ServicesPage() {
                           <span>Hours: {formatTime(service.availableTimeStart)} - {formatTime(service.availableTimeEnd)}</span>
                         </div>
                       </div>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            ) : (
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
               <div className="flex flex-col items-center justify-center p-16 text-center">
                 <Check className="mb-2 h-10 w-10 text-muted-foreground" />
                 <h3 className="text-lg font-medium">No available services found</h3>
@@ -525,7 +525,7 @@ export default function ServicesPage() {
             {loading ? (
               <div className="flex justify-center items-center p-16">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+                          </div>
             ) : filteredServices.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredServices.map((service) => (
@@ -558,7 +558,7 @@ export default function ServicesPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </div>
+                            </div>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="secondary" className="font-normal">
                           ${service.price}
@@ -569,7 +569,7 @@ export default function ServicesPage() {
                         <Badge variant="destructive" className="font-normal">
                           Unavailable
                         </Badge>
-                      </div>
+                          </div>
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground line-clamp-2">
@@ -589,8 +589,8 @@ export default function ServicesPage() {
                       </div>
                     </CardFooter>
                   </Card>
-                ))}
-              </div>
+                    ))}
+                  </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-16 text-center">
                 <X className="mb-2 h-10 w-10 text-muted-foreground" />
@@ -872,9 +872,9 @@ export default function ServicesPage() {
                   className="w-20"
                 />
                 <span>{serviceForm.availableTimeEnd < 12 ? 'AM' : 'PM'}</span>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
           <DialogFooter>
             <Button 
               variant="outline" 

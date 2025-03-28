@@ -27,6 +27,7 @@ import {
   Bell,
   MessageSquare,
   User,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface NavItemProps {
@@ -42,16 +43,21 @@ interface DashboardLayoutProps {
 
 const NavItem = ({ icon: Icon, label, href, isActive }: NavItemProps) => (
   <Link href={href} className="w-full">
-    <Button
-      variant={isActive ? 'default' : 'ghost'}
-      className={cn(
-        'w-full justify-start gap-2',
-        isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
-      )}
+    <motion.div
+      whileHover={{ scale: 1.03 }}
+      whileTap={{ scale: 0.97 }}
     >
-      <Icon className="h-4 w-4" />
-      <span>{label}</span>
-    </Button>
+      <Button
+        variant={isActive ? 'default' : 'ghost'}
+        className={cn(
+          'w-full justify-start gap-2',
+          isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
+        )}
+      >
+        <Icon className="h-4 w-4" />
+        <span>{label}</span>
+      </Button>
+    </motion.div>
   </Link>
 );
 
@@ -66,7 +72,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: Calendar, label: t('navigation.appointments'), href: '/appointments' },
     { icon: Users, label: t('navigation.clients'), href: '/clients' },
     { icon: Coffee, label: t('navigation.services'), href: '/services' },
-    { icon: BarChart3, label: 'Analytics', href: '/analytics' },
+    { icon: BarChart3, label: t('navigation.analytics'), href: '/analytics' },
     { icon: Settings, label: t('navigation.settings'), href: '/settings' },
   ];
 
@@ -80,6 +86,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return `${names[0].charAt(0)}${names[names.length - 1].charAt(0)}`.toUpperCase();
   };
 
+  // Check if user is admin
+  const isAdmin = user?.role === 'ADMIN';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top Navigation */}
@@ -89,37 +98,45 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Button variant="ghost" size="icon" onClick={toggleSidebar} className="md:hidden">
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <div className="flex items-center gap-2">
+            <motion.div 
+              className="flex items-center gap-2"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
               <Coffee className="h-6 w-6 text-primary" />
               <span className="text-xl font-bold tracking-tight">Booking System</span>
-            </div>
+            </motion.div>
           </div>
           
           <div className="flex items-center gap-4">
-            {/* Admin Panel */}
-            <AdminPanel />
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-red-500"></span>
+              </Button>
+            </motion.div>
             
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 flex h-2 w-2 rounded-full bg-red-500"></span>
-            </Button>
-            
-            <Button variant="ghost" size="icon">
-              <MessageSquare className="h-5 w-5" />
-            </Button>
+            <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+              <Button variant="ghost" size="icon">
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+            </motion.div>
             
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="gap-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.imageUrl} alt={user?.name || 'User'} />
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden md:inline-flex">{user?.name}</span>
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
+                <motion.div whileHover={{ scale: 1.05 }}>
+                  <Button variant="ghost" className="gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.imageUrl} alt={user?.name || 'User'} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {getInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden md:inline-flex">{user?.name}</span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </motion.div>
               </PopoverTrigger>
               <PopoverContent className="w-56" align="end">
                 <div className="grid gap-2">
@@ -134,13 +151,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       <p className="text-xs text-muted-foreground">{user?.email}</p>
                     </div>
                   </div>
-                  <div className="mt-2 grid gap-1">
+                  
+                  <motion.div whileHover={{ scale: 1.02 }}>
                     <Link href="/profile">
                       <Button variant="ghost" className="w-full justify-start">
                         <User className="mr-2 h-4 w-4" />
                         {t('navigation.profile')}
                       </Button>
                     </Link>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.02 }}>
                     <Button 
                       variant="ghost" 
                       className="w-full justify-start text-red-500" 
@@ -149,7 +169,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>{t('navigation.logout')}</span>
                     </Button>
-                  </div>
+                  </motion.div>
                 </div>
               </PopoverContent>
             </Popover>
@@ -162,46 +182,90 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AnimatePresence>
           {sidebarOpen && (
             <motion.aside
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: '16rem', opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-y-16 left-0 z-30 w-64 bg-background border-r md:hidden"
+              initial={{ width: 0, opacity: 0, x: -50 }}
+              animate={{ width: '16rem', opacity: 1, x: 0 }}
+              exit={{ width: 0, opacity: 0, x: -50 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-y-16 left-0 z-30 w-64 bg-background border-r md:hidden overflow-hidden"
             >
               <nav className="grid gap-1 p-4">
-                {navItems.map((item) => (
-                  <NavItem
+                {navItems.map((item, index) => (
+                  <motion.div
                     key={item.href}
-                    icon={item.icon}
-                    label={item.label}
-                    href={item.href}
-                    isActive={pathname === item.href}
-                  />
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <NavItem
+                      icon={item.icon}
+                      label={item.label}
+                      href={item.href}
+                      isActive={pathname === item.href}
+                    />
+                  </motion.div>
                 ))}
+                
+                {isAdmin && (
+                  <motion.div 
+                    className="mt-2 pt-2 border-t border-border"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: navItems.length * 0.05 + 0.1 }}
+                  >
+                    <AdminPanel />
+                  </motion.div>
+                )}
               </nav>
             </motion.aside>
           )}
         </AnimatePresence>
         
         {/* Sidebar for desktop */}
-        <aside className="hidden w-64 shrink-0 border-r md:block">
+        <motion.aside 
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+          className="hidden w-64 shrink-0 border-r md:block"
+        >
           <nav className="grid gap-1 p-4">
-            {navItems.map((item) => (
-              <NavItem
+            {navItems.map((item, index) => (
+              <motion.div
                 key={item.href}
-                icon={item.icon}
-                label={item.label}
-                href={item.href}
-                isActive={pathname === item.href}
-              />
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <NavItem
+                  icon={item.icon}
+                  label={item.label}
+                  href={item.href}
+                  isActive={pathname === item.href}
+                />
+              </motion.div>
             ))}
+            
+            {isAdmin && (
+              <motion.div 
+                className="mt-2 pt-2 border-t border-border"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: navItems.length * 0.05 + 0.1 }}
+              >
+                <AdminPanel />
+              </motion.div>
+            )}
           </nav>
-        </aside>
+        </motion.aside>
         
         {/* Main content */}
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <motion.main 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.5 }}
+          className="flex-1 overflow-auto p-4 md:p-6"
+        >
           {children}
-        </main>
+        </motion.main>
       </div>
     </div>
   );

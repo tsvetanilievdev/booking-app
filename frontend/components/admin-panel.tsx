@@ -37,6 +37,7 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { Globe, Users, BarChart2, Settings2, ShieldAlert } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 export function AdminPanel() {
   const { user } = useAuth();
@@ -57,12 +58,18 @@ export function AdminPanel() {
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <ShieldAlert className="h-4 w-4" />
-            {t('navigation.adminPanel')}
-          </Button>
+          <motion.div 
+            whileHover={{ scale: 1.03 }} 
+            whileTap={{ scale: 0.97 }}
+            className="w-full"
+          >
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
+              <ShieldAlert className="h-4 w-4" />
+              <span>Admin Panel</span>
+            </Button>
+          </motion.div>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[800px]">
+        <DialogContent className="w-[90vw] max-w-[800px] md:w-[800px] h-[80vh] max-h-[600px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('admin.title')}</DialogTitle>
             <DialogDescription>
@@ -70,8 +77,8 @@ export function AdminPanel() {
             </DialogDescription>
           </DialogHeader>
           
-          <Tabs defaultValue="language" className="mt-4">
-            <TabsList className="grid grid-cols-3">
+          <Tabs defaultValue="language">
+            <TabsList className="grid w-full grid-cols-1 md:grid-cols-3">
               <TabsTrigger value="language" className="flex items-center justify-center gap-2">
                 <Globe className="h-4 w-4" />
                 {t('admin.languageSettings')}
@@ -97,21 +104,27 @@ export function AdminPanel() {
                 <CardContent className="space-y-4">
                   <div className="flex flex-col space-y-2">
                     <h3 className="text-sm font-medium">{t('admin.chooseLanguage')}</h3>
-                    <div className="flex space-x-2">
-                      <Button 
-                        variant={language === 'en' ? 'default' : 'outline'} 
-                        size="sm"
-                        onClick={() => handleLanguageChange('en')}
-                      >
-                        🇬🇧 English
-                      </Button>
-                      <Button 
-                        variant={language === 'bg' ? 'default' : 'outline'} 
-                        size="sm"
-                        onClick={() => handleLanguageChange('bg')}
-                      >
-                        🇧🇬 Български
-                      </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button 
+                          variant={language === 'en' ? 'default' : 'outline'} 
+                          size="sm"
+                          onClick={() => handleLanguageChange('en')}
+                          className="flex items-center gap-2"
+                        >
+                          🇬🇧 English
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button 
+                          variant={language === 'bg' ? 'default' : 'outline'} 
+                          size="sm"
+                          onClick={() => handleLanguageChange('bg')}
+                          className="flex items-center gap-2"
+                        >
+                          🇧🇬 Български
+                        </Button>
+                      </motion.div>
                     </div>
                   </div>
                 </CardContent>
@@ -123,7 +136,7 @@ export function AdminPanel() {
                 <CardHeader>
                   <CardTitle>{t('admin.users')}</CardTitle>
                   <CardDescription>
-                    Manage system users
+                    {t('admin.userManagement')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -152,31 +165,6 @@ export function AdminPanel() {
           </Tabs>
         </DialogContent>
       </Dialog>
-      
-      {/* Mobile dropdown menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild className="lg:hidden">
-          <Button variant="outline" size="icon">
-            <ShieldAlert className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{t('navigation.adminPanel')}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setIsOpen(true)}>
-            <Settings2 className="h-4 w-4 mr-2" />
-            {t('admin.settings')}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>{t('settings.language')}</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => handleLanguageChange('en')}>
-            🇬🇧 English
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleLanguageChange('bg')}>
-            🇧🇬 Български
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </>
   );
 } 

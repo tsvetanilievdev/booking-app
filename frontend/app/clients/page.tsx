@@ -336,20 +336,20 @@ export default function ClientsPage() {
               </div>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contact</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact</TableHead>
                       <TableHead>Last Visit</TableHead>
-                      <TableHead className="text-right">Total Spent</TableHead>
-                      <TableHead className="w-[60px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                  <TableHead className="text-right">Total Spent</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                     {clients.length > 0 ? (
                       clients.map((client) => (
-                        <TableRow key={client.id}>
+                    <TableRow key={client.id}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {client.name}
@@ -358,83 +358,83 @@ export default function ClientsPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <div className="flex items-center text-sm">
-                                <Mail className="mr-1 h-3 w-3" />
-                                <span>{client.email}</span>
-                              </div>
-                              <div className="flex items-center text-sm text-muted-foreground">
-                                <Phone className="mr-1 h-3 w-3" />
-                                <span>{client.phone}</span>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <Calendar className="mr-1 h-3 w-3" />
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <div className="flex items-center text-sm">
+                            <Mail className="mr-1 h-3 w-3" />
+                            <span>{client.email}</span>
+                          </div>
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Phone className="mr-1 h-3 w-3" />
+                            <span>{client.phone}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Calendar className="mr-1 h-3 w-3" />
                               <span>{client.lastVisit ? format(new Date(client.lastVisit), 'PP') : 'No visits yet'}</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
+                        </div>
+                        <div className="text-xs text-muted-foreground">
                               {client.totalVisits || 0} total visits
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
                             ${client.totalSpent || 0}
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => navigateToBooking(client.id)}>
-                                  <Calendar className="mr-2 h-4 w-4" />
-                                  <span>Book Appointment</span>
-                                </DropdownMenuItem>
+                              <Calendar className="mr-2 h-4 w-4" />
+                              <span>Book Appointment</span>
+                            </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditModal(client)}>
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  <span>Edit Client</span>
-                                </DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit Client</span>
+                            </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleToggleVipStatus(client)}>
                                   <UserCheck className="mr-2 h-4 w-4" />
                                   <span>{client.isVip ? 'Remove VIP Status' : 'Make VIP'}</span>
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator />
+                            <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => openDeleteModal(client)} className="text-red-600">
-                                  <Trash className="mr-2 h-4 w-4" />
+                              <Trash className="mr-2 h-4 w-4" />
                                   <span>Delete Client</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
                           No clients found. Try a different search or add a new client.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
                 {totalPages > 1 && (
                   <div className="p-4 border-t">
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious 
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
                             onClick={() => setPage(prev => Math.max(1, prev - 1))}
                             className={page === 1 ? 'pointer-events-none opacity-50' : ''} 
-                          />
-                        </PaginationItem>
-                        
+                      />
+                    </PaginationItem>
+                    
                         {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                           // Show pages around the current page
                           let pageNumber;
@@ -462,28 +462,28 @@ export default function ClientsPage() {
                         
                         {totalPages > 5 && page < totalPages - 2 && (
                           <>
-                            <PaginationItem>
-                              <PaginationEllipsis />
-                            </PaginationItem>
-                            <PaginationItem>
-                              <PaginationLink 
+                              <PaginationItem>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                              <PaginationItem>
+                                <PaginationLink 
                                 onClick={() => setPage(totalPages)}
                               >
                                 {totalPages}
-                              </PaginationLink>
-                            </PaginationItem>
+                                </PaginationLink>
+                              </PaginationItem>
                           </>
                         )}
-                        
-                        <PaginationItem>
-                          <PaginationNext 
+                    
+                    <PaginationItem>
+                      <PaginationNext 
                             onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
                             className={page === totalPages ? 'pointer-events-none opacity-50' : ''} 
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
                 )}
               </>
             )}
